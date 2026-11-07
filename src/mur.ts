@@ -195,36 +195,237 @@ export interface ResultatMur {
 
 const A_ECRIRE = 'a ecrire';
 
-export function positionsLits(_g: Geometrie): Lit[] {
-  throw new Error(A_ECRIRE);
+const RAD = Math.PI / 180;
+
+/** Nombre au format francais, pour les messages. */
+function fr(x: number, decimales = 2): string {
+  return x.toFixed(decimales).replace('.', ',');
 }
 
-export function facteurKcc(_a: ArmatureAcier): number {
-  throw new Error(A_ECRIRE);
+function strictementPositif(v: number, nom: string, unite: string): void {
+  if (!(Number.isFinite(v) && v > 0)) {
+    throw new Error(`${nom} doit être un nombre strictement positif (${unite}).`);
+  }
 }
 
-export function perteEpaisseur(_a: ArmatureAcier): number {
-  throw new Error(A_ECRIRE);
+function positifOuNul(v: number, nom: string, unite: string): void {
+  if (!(Number.isFinite(v) && v >= 0)) {
+    throw new Error(`${nom} doit être un nombre positif ou nul (${unite}).`);
+  }
 }
 
-export function sectionReduite(_a: ArmatureAcier): { A0: number; Ar: number; rapport: number } {
-  throw new Error(A_ECRIRE);
+/** Angle de frottement saisi en degres : strictement dans ]0 ; 90[. */
+function angleSaisi(phiDeg: number, nom: string): void {
+  if (!(Number.isFinite(phiDeg) && phiDeg > 0 && phiDeg < 90)) {
+    throw new Error(`L'angle de frottement φ ${nom} doit être strictement compris entre 0 et 90 degrés (φ = ${phiDeg}).`);
+  }
 }
 
-export function longueurActive(_a: Armature, _H: number, _h: number, _phiDeg: number): number {
-  throw new Error(A_ECRIRE);
+/** Positivite de toutes les grandeurs d'un feuillard d'acier (refus de saisie). */
+function verifierAcier(a: ArmatureAcier): void {
+  strictementPositif(a.nbParMetre, 'Le nombre de feuillards par mètre n', 'sans unité');
+  strictementPositif(a.largeur, 'La largeur b du feuillard', 'mm');
+  strictementPositif(a.epaisseur, "L'épaisseur e du feuillard", 'mm');
+  strictementPositif(a.fy, "La limite d'élasticité fy", 'MPa');
+  strictementPositif(a.dureeVie, "La durée d'utilisation de projet", 'ans');
+  strictementPositif(a.KsurKa0, 'Le rapport K/Ka en tête', 'sans unité');
+  strictementPositif(a.KsurKaZ0, 'Le rapport K/Ka à z0', 'sans unité');
+  strictementPositif(a.z0, 'La profondeur z0', 'm');
+  strictementPositif(a.muPo0, 'Le coefficient μpo,0', 'sans unité');
+  strictementPositif(a.muPoZ0, 'Le coefficient μpo,z0', 'sans unité');
 }
 
-export function defautsGraviteCoherente(_phiRemblaiDeg: number, _Cu?: number): {
+/** Refus de saisie d'une nappe geosynthetique (EN 1997-3:2025, 9.2 et 9.9, 9.17). */
+function verifierGeosynthetique(a: ArmatureGeosynthetique): void {
+  strictementPositif(a.Tk, 'La résistance caractéristique Tk', 'kN/m');
+  if (!(a.etaGs > 0 && a.etaGs <= 1)) {
+    throw new Error(`Le facteur de réduction η_gs doit être dans ]0 ; 1] (sans unité) ; valeur saisie : ${a.etaGs}.`);
+  }
+  if (!(a.Rc > 0 && a.Rc <= 1)) {
+    throw new Error(`Le taux de couverture Rc doit être dans ]0 ; 1] (sans unité) ; valeur saisie : ${a.Rc}.`);
+  }
+  if (!(Number.isFinite(a.gammaRd) && a.gammaRd >= 1)) {
+    throw new Error(`Le facteur de modèle γRd,gs doit être supérieur ou égal à 1 (sans unité) ; valeur saisie : ${a.gammaRd}.`);
+  }
+  strictementPositif(a.kpo, "Le facteur d'arrachement kpo", 'sans unité');
+}
+
+/** Refus de saisie de l'ensemble des donnees ; leve au premier defaut, message en francais. */
+function verifierSaisie(d: DonneesMur): void {
+  const g = d.geometrie;
+  strictementPositif(g.H, 'La hauteur H', 'm');
+  strictementPositif(g.L, 'La longueur L des armatures', 'm');
+  strictementPositif(g.Sv, "L'espacement vertical Sv", 'm');
+  strictementPositif(g.premierLit, 'La hauteur du premier lit', 'm');
+  if (g.premierLit >= g.H) {
+    throw new Error(`La hauteur du premier lit (${g.premierLit} m) doit être inférieure à H (${g.H} m).`);
+  }
+  if (!(Number.isFinite(g.D) && g.D >= 0 && g.D < g.H)) {
+    throw new Error(`L'encastrement D doit être positif ou nul et inférieur à H (${g.H} m) : valeur saisie ${g.D} m.`);
+  }
+
+  for (const [nom, s] of [
+    ['du remblai renforcé', d.remblaiRenforce],
+    ['du remblai retenu', d.remblaiRetenu],
+  ] as const) {
+    strictementPositif(s.gamma, `Le poids volumique γ ${nom}`, 'kN/m3');
+    angleSaisi(s.phiDeg, nom);
+  }
+
+  const f = d.fondation;
+  strictementPositif(f.gamma, 'Le poids volumique γ de la fondation', 'kN/m3');
+  if (f.drainage === 'draine') {
+    if (f.phiDeg === undefined) throw new Error("La fondation drainée exige l'angle de frottement φ' de la fondation.");
+    angleSaisi(f.phiDeg, 'de la fondation');
+    positifOuNul(f.c ?? 0, "La cohésion c' de la fondation", 'kPa');
+  } else {
+    strictementPositif(f.cu ?? Number.NaN, 'La cohésion non drainée c_u de la fondation', 'kPa');
+  }
+
+  positifOuNul(d.qG, 'La surcharge permanente qG', 'kPa');
+  positifOuNul(d.qQ, 'La surcharge variable qQ', 'kPa');
+
+  if (d.armature.type === 'acier') verifierAcier(d.armature);
+  else verifierGeosynthetique(d.armature);
+
+  if (d.generation === '1re') {
+    const c = d.coefficientsInternes1g;
+    if (c === null) {
+      throw new Error("Les coefficients internes de 1re génération (γRt, γRpo) doivent être saisis : aucune valeur par défaut dans la norme.");
+    }
+    strictementPositif(c.gRt, 'Le coefficient interne γRt', 'sans unité');
+    strictementPositif(c.gRpo, 'Le coefficient interne γRpo', 'sans unité');
+  }
+}
+
+/**
+ * Positions des lits : h_k = premierLit + k·Sv tant que h_k < H (PLAN.md, lits).
+ * Hauteur d'influence : de la base (lit du bas) ou du milieu avec le lit inferieur,
+ * jusqu'au milieu avec le lit superieur ou jusqu'a la crete (lit du haut). Les hauteurs
+ * d'influence de tous les lits font H ; la demi-somme evite de compter deux fois un lit.
+ */
+export function positionsLits(g: Geometrie): Lit[] {
+  strictementPositif(g.H, 'La hauteur H', 'm');
+  strictementPositif(g.Sv, "L'espacement vertical Sv", 'm');
+  strictementPositif(g.premierLit, 'La hauteur du premier lit', 'm');
+  const hs: number[] = [];
+  for (let k = 0; ; k++) {
+    const h = g.premierLit + k * g.Sv;
+    if (h >= g.H - 1e-9) break;
+    hs.push(h);
+  }
+  return hs.map((h, k) => {
+    const bas = k === 0 ? 0 : (hs[k - 1] + h) / 2;
+    const haut = k === hs.length - 1 ? g.H : (h + hs[k + 1]) / 2;
+    return { h, z: g.H - h, Sv: haut - bas };
+  });
+}
+
+/**
+ * Facteur de perte kcc (EN 1997-3:2025, tableau 9.3) : valeurs pour e <= 6 mm, 1,0 pour
+ * e >= 12 mm, interpolation lineaire entre les deux.
+ */
+export function facteurKcc(a: ArmatureAcier): number {
+  verifierAcier(a);
+  const uniforme = a.repartition === 'uniforme';
+  const k6 = a.galvanise ? (uniforme ? 1.7 : 2.0) : uniforme ? 2.5 : 3.0;
+  const e = a.epaisseur;
+  if (e <= 6) return k6;
+  if (e >= 12) return 1.0;
+  return k6 + ((1.0 - k6) * (e - 6)) / 6;
+}
+
+/**
+ * Perte d'epaisseur par face Δe, en mm (EN 1997-3:2025, 9.3.4 et tableau 9.2) :
+ * Δe = kcc·max(A·T^n − ez ; 0) en µm. A, n et ez viennent du tableau 9.2 ; T est la
+ * duree d'utilisation de projet en ans.
+ */
+export function perteEpaisseur(a: ArmatureAcier): number {
+  verifierAcier(a);
+  const terrestre = a.milieu === 'terrestre';
+  const A = terrestre ? 25 : 40;
+  let n: number;
+  if (a.galvanise) n = terrestre ? 0.65 : 0.6;
+  else n = terrestre ? 0.8 : 0.75;
+  const ez = a.galvanise ? 70 : 0;
+  const microns = facteurKcc(a) * Math.max(A * Math.pow(a.dureeVie, n) - ez, 0);
+  return microns / 1000;
+}
+
+/**
+ * Section reduite d'un feuillard (EN 1997-3:2025, 9.3.4) : Ar = (b − 2Δe)(e − 2Δe), en mm2,
+ * avec la perte sur tout le pourtour ; A0 = b·e. Le rapport Ar/A0 sert au refus à 50 %.
+ */
+export function sectionReduite(a: ArmatureAcier): { A0: number; Ar: number; rapport: number } {
+  verifierAcier(a);
+  const de = perteEpaisseur(a);
+  const A0 = a.largeur * a.epaisseur;
+  const Ar = (a.largeur - 2 * de) * (a.epaisseur - 2 * de);
+  return { A0, Ar, rapport: Ar / A0 };
+}
+
+/**
+ * Longueur active, depuis le parement (m) : acier, 0,6·h si h <= H/2, sinon 0,3·H (gravite
+ * coherente, FHWA) ; geosynthetique, h·tan(45° − φr/2) (coin de Rankine). phiDeg est la
+ * valeur caracteristique de φr.
+ */
+export function longueurActive(a: Armature, H: number, h: number, phiDeg: number): number {
+  strictementPositif(H, 'La hauteur H', 'm');
+  strictementPositif(h, 'La hauteur du lit h', 'm');
+  if (a.type === 'acier') {
+    verifierAcier(a);
+    return h <= H / 2 ? 0.6 * h : 0.3 * H;
+  }
+  angleSaisi(phiDeg, 'du remblai renforcé');
+  return h * Math.tan((45 - phiDeg / 2) * RAD);
+}
+
+/**
+ * Valeurs par defaut de la gravite coherente (feuillards d'acier), FHWA-NHI-10-024 :
+ * K/Ka en tete 1,7 ; K/Ka a z0 et au-dela 1,2 ; z0 = 6 m ; μpo,0 = min(2 ; 1,2 + log10 Cu) ;
+ * μpo,z0 = tan φr. Chaque valeur porte sa source.
+ */
+export function defautsGraviteCoherente(
+  phiRemblaiDeg: number,
+  Cu = 4,
+): {
   KsurKa0: ValeurNommee;
   KsurKaZ0: ValeurNommee;
   z0: ValeurNommee;
   muPo0: ValeurNommee;
   muPoZ0: ValeurNommee;
 } {
-  throw new Error(A_ECRIRE);
+  angleSaisi(phiRemblaiDeg, 'du remblai renforcé');
+  strictementPositif(Cu, 'Le coefficient d uniformité Cu', 'sans unité');
+  const src = 'FHWA-NHI-10-024, valeur par défaut de la gravité cohérente';
+  return {
+    KsurKa0: { nom: 'K/Ka en tête', valeur: 1.7, source: `${src}` },
+    KsurKaZ0: { nom: 'K/Ka à z0 et au-delà', valeur: 1.2, source: `${src}` },
+    z0: { nom: 'z0', valeur: 6, source: `${src}` },
+    muPo0: {
+      nom: 'μpo,0',
+      valeur: Math.min(2, 1.2 + Math.log10(Cu)),
+      source: `${src} : μpo,0 = min(2 ; 1,2 + log10 Cu), Cu = ${fr(Cu, 1)}`,
+    },
+    muPoZ0: { nom: 'μpo,z0', valeur: Math.tan(phiRemblaiDeg * RAD), source: `${src} : μpo,z0 = tan φr` },
+  };
 }
 
-export function verifierMur(_d: DonneesMur): ResultatMur {
+export function verifierMur(d: DonneesMur): ResultatMur {
+  verifierSaisie(d);
+  if (d.armature.type === 'acier') {
+    const a = d.armature;
+    // Limites de 9.3.4, dans cet ordre : la limite d'elasticite avant la section reduite.
+    if (!a.galvanise && a.fy > 500) {
+      throw new Error(`La limite d'élasticité fy = ${fr(a.fy, 0)} MPa dépasse 500 MPa pour un acier non galvanisé : refus (EN 1997-3:2025, 9.3.4).`);
+    }
+    if (a.galvanise && a.fy > 600) {
+      throw new Error(`La limite d'élasticité fy = ${fr(a.fy, 0)} MPa dépasse 600 MPa pour un acier galvanisé : refus (EN 1997-3:2025, 9.3.4).`);
+    }
+    const s = sectionReduite(a);
+    if (s.rapport < 0.5) {
+      throw new Error(`La section réduite Ar = ${fr(s.Ar, 1)} mm² est inférieure à 50 % de A0 = ${fr(s.A0, 1)} mm² après corrosion : refus (EN 1997-3:2025, 9.3.4).`);
+    }
+  }
   throw new Error(A_ECRIRE);
 }
