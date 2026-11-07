@@ -285,6 +285,13 @@ describe('T5 : stabilite generale et mixte, assemblage', () => {
     expect(r.stabilite[0].F).toBeLessThanOrEqual(impose.stabilite[0].F + 1e-9);
   });
 
+  it('recherche : le cercle sort au pied ou devant, jamais par le parement (audit)', () => {
+    const r = verifierMur(deuxieme({ cercle: null, geometrie: { ...base().geometrie, L: 5 } }));
+    const t0 = r.stabilite[0].resultat.tranches[0];
+    expect(t0.x - t0.b / 2).toBeLessThanOrEqual(1e-4 + 1e-9);
+    expect(r.stabilite[0].F).toBeGreaterThan(1);
+  });
+
   it('gouvernant : le taux le plus eleve de toutes les verifications', () => {
     const r = verifierMur(base());
     expect(r.gouvernant.verification).toBe('portance');
