@@ -963,7 +963,7 @@ export function verifierMur(d: DonneesMur): ResultatMur {
   }
   for (const e of externe) {
     if (e.portance.detail.Bp <= 0) {
-      alertes.add('La résultante sort de la semelle (B\' ≤ 0) : portance non calculée, taux infini.');
+      alertes.add('La résultante sort de la base du massif (B\' ≤ 0) : portance non calculée, taux infini.');
     }
   }
   if (d.geometrie.L < 0.7 * d.geometrie.H) {
