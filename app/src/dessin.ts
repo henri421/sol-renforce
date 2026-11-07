@@ -74,19 +74,23 @@ export function coupe(calcul: Calcul, r: Resultat, vue: string, options: Options
   // Terrain : le devant du parement a la cote D, la crete a H. Les deux extremites
   // debordent du massif pour que la coupe se lise comme un sol, pas comme une boite.
   const debord = Math.max(H, 1);
-  const xg = -debord;
-  const xd = L + debord;
-  // Epaisseur dessinee du sol de fondation, sous la base du massif (m).
-  const profF = Math.max(0.5, 0.2 * H);
 
-  // Extremites de l'arc : aux bords de la premiere et de la derniere tranche, sur le terrain.
+  // Extremites de l'arc : aux bords de la premiere et de la derniere tranche, SUR LE CERCLE
+  // (au parement vertical, le terrain d'une tranche est la crete, pas la sortie de l'arc).
   const n = tranches.length;
   const t0 = n > 0 ? tranches[0] : null;
   const tn = n > 0 ? tranches[n - 1] : null;
+  const surCercle = (x: number): number => cercle.yc - Math.sqrt(Math.max(0, cercle.R ** 2 - (x - cercle.xc) ** 2));
   const xa = t0 ? t0.x - t0.b / 2 : cercle.xc - cercle.R;
-  const ya = t0 ? t0.ySol : D;
+  const ya = t0 ? surCercle(xa) : D;
   const xb = tn ? tn.x + tn.b / 2 : cercle.xc + cercle.R;
-  const yb = tn ? tn.ySol : H;
+  const yb = tn ? surCercle(xb) : H;
+
+  // Le terrain et la fondation dessines contiennent l'arc entier.
+  const xg = Math.min(-debord, xa - 0.15 * debord);
+  const xd = Math.max(L + debord, xb + 0.15 * debord);
+  // Epaisseur dessinee du sol de fondation, sous la base du massif (m), jusque sous le cercle.
+  const profF = Math.max(0.5, 0.2 * H, cercle.R - cercle.yc + 0.1 * H);
 
   // Cadre : tout ce qui est dessine, centre du cercle compris. Il ne depend pas des options.
   const xs = [xg, 0, L, xd, xa, xb, cercle.xc];
@@ -172,7 +176,7 @@ export function coupe(calcul: Calcul, r: Resultat, vue: string, options: Options
   // Libelles des sols et du massif.
   corps.push(texte(X(L / 2), Y(0.9 * H), 'texte-coupe', T.dessin.massif, 'middle'));
   corps.push(texte(X((L + xd) / 2), Y(0.9 * H), 'texte-coupe', T.dessin.remblaiRetenu, 'middle'));
-  corps.push(texte(X(0.6 * L), Y(-0.45 * profF), 'texte-coupe', T.dessin.fondation, 'middle'));
+  corps.push(texte(X((L + xd) / 2), Y(-0.5 * profF), 'texte-coupe', T.dessin.fondation, 'middle'));
 
   // Cotes H et L, retirees par l'option « cotes ».
   if (options.cotes) {
