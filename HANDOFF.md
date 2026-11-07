@@ -138,3 +138,36 @@ Commit : `300c9c1`.
 - Hypothèse de T4 (φb représentatif en 2e génération pour le basculement et l'excentricité) : conforme au plan et au mur en L.
 - Corrigé : message « la résultante sort de la semelle » → « de la base du massif ».
 - Cas restés sans test : DA3, approches (c) et (d), B' ≤ 0, ANB. À couvrir par les tests de l'interface ou un lot suivant.
+
+## T1 interface
+
+**Fichiers modifiés**
+- `app/index.html` (nouveau) : saisie, résultats, dessin, sorties, sur la maquette ; `data-champ`, boutons `data-generation`, `data-armature`, `data-drainage`, `data-cercle`, `data-action`, `data-role` et `data-option` selon `page.test.ts`.
+- `app/src/form.ts` : saisie par défaut, `lireSaisie`, `verifier`, `defautsFhwa`, `serialiser`, `relire`.
+- `app/src/main.ts` (nouveau) : cablage seulement, sur le gabarit du talus.
+- `app/src/textes.ts` : blocs `refus` et `page` ajoutés à FR et à EN ; `messages`, `clauses`, `verifications`, `note` intacts.
+
+**Décisions**
+- Valeurs par défaut : celles de `form.test.ts` ; les cinq valeurs FHWA sont écrites en dur (`1,7`, `1,2`, `6`, `1,802`, `0,727`, soit `defautsFhwa('36')`).
+- Diviseurs γ_Rt et γ_R,po : lus seulement en 1re génération ; vides, ils refusent en les nommant.
+- Champs de la gravité cohérente et de la géosynthétique : lus selon l'armature retenue seulement. Les champs du remblai, de la fondation et des surcharges sont lus dans tous les cas.
+- Protection galvanisée : liste `data-champ="galvanise"` (valeurs `oui` / `non`), convertie en booléen dans `main.ts`.
+- Bouton « Valeurs FHWA » : `defautsFhwa(phiR)` remplit les cinq champs ; si φ'r est illisible ou hors de ]0 ; 90[, message `page.defautsIllisibles`.
+- Tableau des lits : zone `data-role="lits"` dans un `<details>` de la colonne Résultats, remplie par `main.ts` (boutons `data-combinaison` + `litsHtml`). Combinaison la plus chargée (`tauxMax`) par défaut.
+- Refus : « libellé : nombre attendu, « x » saisi. » ; φ' hors de ]0 ; 90[ et c_u ≤ 0 refusés à la saisie.
+- Icône : pas de `<link rel="icon">` (T5 les ajoute ; `app/public` est vide).
+
+**Points douteux**
+- `page.test.ts` passe déjà 13/13, alors que PLAN-interface annonçait T3. Il lit `index.html` et `main.ts` comme texte ; le rendu n'a pas été exécuté, `vue.ts` et `dessin.ts` restent des squelettes.
+- À coordonner avec T2 : `voletsHtml` ne doit pas rendre aussi le tableau des lits, la zone `data-role="lits"` le fait déjà.
+- `gammaRd` est lu aussi en 1re génération (le type `DonneesMur` l'exige) ; sans effet si le noyau ne l'utilise pas en 1re.
+- ANB 2022 : la liste d'approche est grisée et affichée sur DA1 ; `saisie.approche1` garde sa valeur, `lireSaisie` passe DA1.
+- Libellés de `index.html` en français seulement ; la version anglaise est à faire en T4.
+- Attribution : le commit porte `Co-Authored-By: Claude Haiku 4.5`, comme demandé dans la tâche ; l'environnement indique Haiku 5.5. À trancher.
+
+**Statut des tests**
+- `lancer.mjs . form.test` : 21/21 réussis, 0 échec.
+- `lancer.mjs . page.test` : 13/13 réussis, 0 échec (voir point douteux ci-dessus).
+- `typecheck.mjs .` : 0 erreur.
+- Suite complète (`lancer.mjs .`) non lancée dans cette tâche.
+- Aucun fichier de `tests/`, `src/`, `note.ts`, `export.ts`, `vue.ts`, `dessin.ts` ni `package.json` modifié.

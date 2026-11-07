@@ -3,9 +3,9 @@
  * Aucun texte ne se lit au chargement d'un module : toujours `textes()` ou `phrase()` au moment du rendu.
  * Les indices s'ecrivent en notation (`F_d`, `γ_R,po`) : `notationHtml` les met en `<sub>` au rendu.
  *
- * SQUELETTE (T0) : `messages`, `clauses`, `verifications` et `note` sont ecrits et ne changent pas
- * (note.ts les lit). Les autres textes (saisie, verdicts, volets, dessin, refus) s'ajoutent a
- * FR et a EN aux taches T1 a T3 ; les regles de `phrase` (phrases du noyau en anglais) a T5.
+ * `messages`, `clauses`, `verifications` et `note` ne changent pas (note.ts les lit). `refus` et `page`
+ * (T1) sont ajoutes a FR et a EN ; les autres textes (verdicts, volets, dessin) viennent a T2 a T3, et
+ * les regles de `phrase` (phrases du noyau en anglais) a T5.
  */
 
 import { langueCourante, traducteur } from 'aedificium-ui';
@@ -14,6 +14,58 @@ const FR = {
   messages: {
     rienAExporter: 'Aucun calcul valide à exporter : corriger la saisie.',
     nouvelleVersion: 'Une nouvelle version est disponible. Recharger maintenant ?',
+  },
+  /** Refus a la lecture de la saisie : le champ est nomme, avec son libelle. */
+  refus: {
+    nombre: (champ: string, brut: string) =>
+      brut.trim() === '' ? `${champ} : nombre attendu.` : `${champ} : nombre attendu, « ${brut} » saisi.`,
+    phi: (champ: string, brut: string) => `${champ} : l’angle doit être strictement compris entre 0 et 90 degrés, « ${brut} » saisi.`,
+    cu: (champ: string, brut: string) => `${champ} : valeur strictement positive attendue, « ${brut} » saisi.`,
+    diviseurVide: (champ: string) => `${champ} : diviseur à saisir, la norme n’en donne pas.`,
+    format: (recu: string, attendu: string) => `Fichier non reconnu : le champ format vaut « ${recu} », « ${attendu} » attendu.`,
+    /** Libelles des champs de la saisie, tels qu'ils apparaissent dans les refus. */
+    champs: {
+      H: 'hauteur du massif H (m)',
+      L: 'longueur des armatures L (m)',
+      D: 'encastrement D (m)',
+      premierLit: 'hauteur du premier lit (m)',
+      Sv: 'espacement vertical S_v (m)',
+      gammaR: 'γ du remblai renforcé (kN/m³)',
+      phiR: 'φ’k du remblai renforcé (°)',
+      gammaB: 'γ du remblai retenu (kN/m³)',
+      phiB: 'φ’k du remblai retenu (°)',
+      gammaF: 'γ du sol de fondation (kN/m³)',
+      phiF: 'φ’k du sol de fondation (°)',
+      cF: 'c’k du sol de fondation (kPa)',
+      cuF: 'c_u,k du sol de fondation (kPa)',
+      qG: 'surcharge permanente q_G (kPa)',
+      qQ: 'surcharge variable q_Q (kPa)',
+      nbParMetre: 'feuillards par mètre',
+      largeur: 'largeur des feuillards (mm)',
+      epaisseur: 'épaisseur des feuillards (mm)',
+      fy: 'f_y (MPa)',
+      dureeVie: 'durée d’utilisation (ans)',
+      KsurKa0: 'K/Ka en tête',
+      KsurKaZ0: 'K/Ka à z0',
+      z0: 'z0 (m)',
+      muPo0: 'μpo en tête',
+      muPoZ0: 'μpo à z0',
+      Tk: 'T_k (kN/m)',
+      etaGs: 'η_gs',
+      gammaRd: 'γ_Rd,gs',
+      Rc: 'taux de couverture R_c',
+      kpo: 'k_po',
+      xc: 'abscisse x_c du cercle imposé (m)',
+      yc: 'ordonnée y_c du cercle imposé (m)',
+      R: 'rayon R du cercle imposé (m)',
+      gRt: 'γ_Rt (rupture)',
+      gRpo: 'γ_R,po (arrachement)',
+    },
+  },
+  /** Page : messages de cablage (main.ts). */
+  page: {
+    elementAbsent: (selecteur: string) => `Élément absent de la page : ${selecteur}`,
+    defautsIllisibles: 'Valeurs FHWA non remplies : saisir d’abord φ’k du remblai renforcé, entre 0 et 90 degrés.',
   },
   /** Clauses par generation et par verification (verdicts et note). */
   clauses: {
@@ -86,6 +138,55 @@ const EN: Textes = {
   messages: {
     rienAExporter: 'No valid calculation to export: correct the input.',
     nouvelleVersion: 'A new version is available. Reload now?',
+  },
+  refus: {
+    nombre: (champ: string, brut: string) =>
+      brut.trim() === '' ? `${champ}: number expected.` : `${champ}: number expected, got “${brut}”.`,
+    phi: (champ: string, brut: string) => `${champ}: the angle must lie strictly between 0 and 90 degrees, got “${brut}”.`,
+    cu: (champ: string, brut: string) => `${champ}: a strictly positive value is expected, got “${brut}”.`,
+    diviseurVide: (champ: string) => `${champ}: divisor to enter, the standard gives none.`,
+    format: (recu: string, attendu: string) => `Unknown file: the format field is “${recu}”, expected “${attendu}”.`,
+    champs: {
+      H: 'height of the block H (m)',
+      L: 'reinforcement length L (m)',
+      D: 'embedment D (m)',
+      premierLit: 'height of the first layer (m)',
+      Sv: 'vertical spacing S_v (m)',
+      gammaR: 'γ of the reinforced fill (kN/m³)',
+      phiR: 'φ’k of the reinforced fill (°)',
+      gammaB: 'γ of the retained fill (kN/m³)',
+      phiB: 'φ’k of the retained fill (°)',
+      gammaF: 'γ of the foundation soil (kN/m³)',
+      phiF: 'φ’k of the foundation soil (°)',
+      cF: 'c’k of the foundation soil (kPa)',
+      cuF: 'c_u,k of the foundation soil (kPa)',
+      qG: 'permanent surcharge q_G (kPa)',
+      qQ: 'variable surcharge q_Q (kPa)',
+      nbParMetre: 'strips per metre',
+      largeur: 'strip width (mm)',
+      epaisseur: 'strip thickness (mm)',
+      fy: 'f_y (MPa)',
+      dureeVie: 'design life (years)',
+      KsurKa0: 'K/Ka at the top',
+      KsurKaZ0: 'K/Ka at z0',
+      z0: 'z0 (m)',
+      muPo0: 'μpo at the top',
+      muPoZ0: 'μpo at z0',
+      Tk: 'T_k (kN/m)',
+      etaGs: 'η_gs',
+      gammaRd: 'γ_Rd,gs',
+      Rc: 'coverage ratio R_c',
+      kpo: 'k_po',
+      xc: 'abscissa x_c of the imposed circle (m)',
+      yc: 'ordinate y_c of the imposed circle (m)',
+      R: 'radius R of the imposed circle (m)',
+      gRt: 'γ_Rt (rupture)',
+      gRpo: 'γ_R,po (pull-out)',
+    },
+  },
+  page: {
+    elementAbsent: (selecteur: string) => `Element missing from the page: ${selecteur}`,
+    defautsIllisibles: 'FHWA values not filled: first enter φ’k of the reinforced fill, between 0 and 90 degrees.',
   },
   clauses: {
     '1re': {
