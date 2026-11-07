@@ -13,13 +13,18 @@
  *
  * Squelette (T0) : types imposes par PLAN.md, fonctions a ecrire.
  */
-import type { Approche, Approche2e, Cercle, ClasseConsequences, ResultatCercle, Risque } from 'sol-ec7';
+import type { Approche, Approche2e, Cercle, ClasseConsequences, ResultatCercle, Risque, Combinaison } from 'sol-ec7';
 import {
   combinaisons1g,
   combinaisons2g,
+  combinaisonsStabilite1g,
   combinaisonsStabilite2g,
   profil1g,
   profil2g,
+  portanceDrainee1g,
+  portanceDrainee2g,
+  portanceNonDrainee1g,
+  portanceNonDrainee2g,
   profilAnb2022,
 } from 'sol-ec7';
 
@@ -591,6 +596,165 @@ function nomProfil(d: DonneesMur): string {
   return d.profilNormatif === 'anb2022' ? profilAnb2022(d.risque).nom : profil1g().nom;
 }
 
+/** Profil 1re generation retenu : recommande ou ANB 2022 (classe de risque saisie). */
+function profil1gDe(d: DonneesMur) {
+  return d.profilNormatif === 'anb2022' ? profilAnb2022(d.risque) : profil1g();
+}
+
+/** Coefficients resolus d'une combinaison de stabilite externe. */
+interface ComboExterne {
+  nom: string;
+  gGdst: number;
+  gGstb: number;
+  gQdst: number;
+  gPhi: number;
+  gC: number;
+  gCu: number;
+  gRv: number;
+  gRh: number;
+}
+
+function versCombo(cb: Combinaison): ComboExterne {
+  return {
+    nom: cb.nom,
+    gGdst: cb.geotechnique.gG_dst.valeur,
+    gGstb: cb.geotechnique.gG_stb.valeur,
+    gQdst: cb.geotechnique.gQ_dst.valeur,
+    gPhi: cb.sol.gPhi.valeur,
+    gC: cb.sol.gC.valeur,
+    gCu: cb.sol.gCu.valeur,
+    gRv: cb.resistance.gRv.valeur,
+    gRh: cb.resistance.gRh.valeur,
+  };
+}
+
+function combinaisonsExternes(d: DonneesMur): ComboExterne[] {
+  if (d.generation === '1re') {
+    const p = profil1gDe(d);
+    // Leve si le profil impose une autre approche (ANB 2022 : DA1), comme pour la stabilite generale.
+    combinaisonsStabilite1g(d.approche, p);
+    return combinaisons1g(d.approche, p).map(versCombo);
+  }
+  return combinaisons2g(d.approche2e, d.cc, profil2g()).map(versCombo);
+}
+
+/**
+ * Poussee horizontale du remblai retenu, coin de Rankine (PLAN.md, stabilite externe) :
+ * tan phi_b,d = tan phi_b / gammaPhi ; PG1 = ½ Ka,b γb H² ; PG2 = Ka,b qG H ; PQ = Ka,b qQ H.
+ * gammaPhi vaut 1 pour la valeur representative (2e generation et stabilite).
+ */
+function poussees(d: DonneesMur, gammaPhi: number): { PG1: number; PG2: number; PQ: number } {
+  const H = d.geometrie.H;
+  const phiBd = Math.atan(Math.tan(d.remblaiRetenu.phiDeg * RAD) / gammaPhi);
+  const Kab = Math.tan(Math.PI / 4 - phiBd / 2) ** 2;
+  return {
+    PG1: 0.5 * Kab * d.remblaiRetenu.gamma * H * H,
+    PG2: Kab * d.qG * H,
+    PQ: Kab * d.qQ * H,
+  };
+}
+
+/** Poids du massif renforce par metre, W0 = γr H L + qG L (surcharge permanente sur la crete). */
+function poidsMassif(d: DonneesMur): number {
+  return d.remblaiRenforce.gamma * d.geometrie.H * d.geometrie.L + d.qG * d.geometrie.L;
+}
+
+/**
+ * Portance ultime avant gamma_Rv (sol-ec7). Drainee : angle et cohesion de calcul, q = γf D.
+ * Non drainee : cu / gamma_cu, q = γf D. En 2e generation, Df = D (et B = L en non draine).
+ */
+function qUltime(d: DonneesMur, c: ComboExterne, Bp: number, Hd: number, Vd: number): number {
+  const f = d.fondation;
+  const D = d.geometrie.D;
+  const q = f.gamma * D;
+  if (f.drainage === 'draine') {
+    const phi = Math.atan(Math.tan((f.phiDeg ?? 0) * RAD) / c.gPhi);
+    const cohesion = (f.c ?? 0) / c.gC;
+    const donnees = { Bp, Lp: null, T: Hd, N: Vd, phi, c: cohesion, gammaEff: f.gamma, q };
+    return d.generation === '1re' ? portanceDrainee1g(donnees).q_u : portanceDrainee2g({ ...donnees, Df: D }).q_u;
+  }
+  const cu = (f.cu ?? 0) / c.gCu;
+  const donnees = { Bp, Lp: null, T: Hd, cu, q };
+  return d.generation === '1re'
+    ? portanceNonDrainee1g(donnees).q_u
+    : portanceNonDrainee2g({ ...donnees, B: d.geometrie.L, Df: D }).q_u;
+}
+
+/** Glissement et portance d'une combinaison (EN 1997-1, clauses 6.5.3 et 6.5.4 ; EN 1997-3, clauses 5). */
+function calculerExterne(d: DonneesMur, c: ComboExterne): ResultatExterne {
+  const { H, L } = d.geometrie;
+  const f = d.fondation;
+  const { PG1, PG2, PQ } = poussees(d, c.gPhi);
+  const W0 = poidsMassif(d);
+  const tanPhiR = Math.tan(d.remblaiRenforce.phiDeg * RAD);
+
+  // Glissement a la base.
+  const Hd = c.gGdst * (PG1 + PG2) + c.gQdst * PQ;
+  const Vs = c.gGstb * W0;
+  let Rd: number;
+  if (f.drainage === 'draine') {
+    Rd = ((Vs * Math.min(tanPhiR, Math.tan((f.phiDeg ?? 0) * RAD))) / c.gPhi) / c.gRh;
+  } else {
+    Rd = Math.min(((f.cu ?? 0) / c.gCu) * L, (Vs * tanPhiR) / c.gPhi) / c.gRh;
+  }
+  const tauxG = Hd / Rd;
+
+  // Portance : excentricite de la resultante, largeur efficace B' = L − 2e.
+  const Vp = c.gGdst * W0 + c.gQdst * d.qQ * L;
+  const Md = c.gGdst * (PG1 * (H / 3) + PG2 * (H / 2)) + c.gQdst * PQ * (H / 2);
+  const e = Md / Vp;
+  const Bp = L - 2 * e;
+  const detailP: Record<string, number> = { e, Bp, Vd: Vp, Hd };
+  let tauxP: number;
+  if (Bp <= 0) {
+    // La resultante sort de la semelle : la portance n'est pas calculable, taux infini.
+    tauxP = Number.POSITIVE_INFINITY;
+    detailP.qEd = Number.POSITIVE_INFINITY;
+  } else {
+    const qEd = Vp / Bp;
+    const qRd = qUltime(d, c, Bp, Hd, Vp) / c.gRv;
+    detailP.qEd = qEd;
+    detailP.qRd = qRd;
+    tauxP = qEd / qRd;
+  }
+
+  return {
+    nom: c.nom,
+    glissement: { taux: tauxG, conforme: tauxG <= 1, detail: { Hd, Vd: Vs, Rd } },
+    portance: { taux: tauxP, conforme: tauxP <= 1, detail: detailP },
+  };
+}
+
+/** Basculement autour du pied (Mdst et Mstb ; PLAN.md, stabilite externe). */
+function basculement(
+  d: DonneesMur,
+  nom: string,
+  gGdst: number,
+  gQdst: number,
+  gGstb: number,
+  gammaPhi: number,
+): { nom: string; Mdst: number; Mstb: number; taux: number; conforme: boolean } {
+  const { H, L } = d.geometrie;
+  const { PG1, PG2, PQ } = poussees(d, gammaPhi);
+  const Mdst = gGdst * (PG1 * (H / 3) + PG2 * (H / 2)) + gQdst * PQ * (H / 2);
+  const Mstb = gGstb * poidsMassif(d) * (L / 2);
+  const taux = Mdst / Mstb;
+  return { nom, Mdst, Mstb, taux, conforme: taux <= 1 };
+}
+
+/** Excentricite de la resultante, 2e generation seulement (EN 1997-3:2025, tableau 5.3). */
+function excentricite2g(d: DonneesMur): NonNullable<ResultatMur['excentricite']> {
+  const { H, L } = d.geometrie;
+  const { PG1, PG2, PQ } = poussees(d, 1);
+  const W0 = poidsMassif(d);
+  const eG = (PG1 * (H / 3) + PG2 * (H / 2)) / W0;
+  const tauxG = eG / (L / 6);
+  const eGQ = eG + (PQ * (H / 2)) / W0;
+  const tauxGQ = eGQ / (L / 3);
+  const taux = Math.max(tauxG, tauxGQ);
+  return { eG, tauxG, eGQ, tauxGQ, taux, conforme: taux <= 1 };
+}
+
 export function verifierMur(d: DonneesMur): ResultatMur {
   verifierSaisie(d);
   let section: ResultatMur['section'] = null;
@@ -612,6 +776,30 @@ export function verifierMur(d: DonneesMur): ResultatMur {
 
   const lits = positionsLits(d.geometrie);
   const interne = jeuxInternes(d).map((j) => calculerInterne(d, j));
+  const externe = combinaisonsExternes(d).map((c) => calculerExterne(d, c));
+
+  let renversement: ResultatMur['renversement'];
+  let excentricite: ResultatMur['excentricite'] = null;
+  if (d.generation === '1re') {
+    const eq = profil1gDe(d).EQU;
+    renversement = basculement(
+      d,
+      'EQU',
+      eq.actions.gG_dst.valeur,
+      eq.actions.gQ_dst.valeur,
+      eq.actions.gG_stb.valeur,
+      eq.sol.gPhi.valeur,
+    );
+  } else {
+    // VC2(a) : facteurs de la partie defavorable (k_F) et gamma_G,stb = 1,15 ; VC2(b) : facteurs
+    // unitaires sur le poids, k_F sur la surcharge variable. Le plus defavorable est garde.
+    const p2 = profil2g();
+    const kF = p2.kF[d.cc].valeur;
+    const va = basculement(d, 'VC2(a)', kF * p2.gG.valeur, kF * p2.gQ.valeur, p2.gG_stb_VC2a.valeur, 1);
+    const vb = basculement(d, 'VC2(b)', 1, kF * p2.gQ.valeur, 1, 1);
+    renversement = va.taux >= vb.taux ? va : vb;
+    excentricite = excentricite2g(d);
+  }
 
   const alertes = new Set<string>();
   for (const i of interne) {
@@ -621,12 +809,26 @@ export function verifierMur(d: DonneesMur): ResultatMur {
       }
     }
   }
+  for (const e of externe) {
+    if (e.portance.detail.Bp <= 0) {
+      alertes.add('La résultante sort de la semelle (B\' ≤ 0) : portance non calculée, taux infini.');
+    }
+  }
   if (d.geometrie.L < 0.7 * d.geometrie.H) {
     alertes.add('L < 0,7·H : en dessous de la longueur minimale usuelle (FHWA)');
   }
 
-  // Gouvernant : a ce stade, seule la stabilite interne est calculee (T4 et T5 ajoutent le reste).
-  const candidats = interne.map((i) => ({ verification: 'interne', combinaison: i.nom, taux: i.tauxMax }));
+  // Gouvernant : stabilite generale (stabilite) absente tant que T5 n'est pas fait.
+  const candidats: { verification: string; combinaison: string; taux: number }[] = [];
+  for (const i of interne) candidats.push({ verification: 'interne', combinaison: i.nom, taux: i.tauxMax });
+  for (const e of externe) {
+    candidats.push({ verification: 'glissement', combinaison: e.nom, taux: e.glissement.taux });
+    candidats.push({ verification: 'portance', combinaison: e.nom, taux: e.portance.taux });
+  }
+  candidats.push({ verification: 'renversement', combinaison: renversement.nom, taux: renversement.taux });
+  if (excentricite !== null) {
+    candidats.push({ verification: 'excentricite', combinaison: 'caractéristique', taux: excentricite.taux });
+  }
   const gouvernant = candidats.reduce((m, c) => (c.taux > m.taux ? c : m));
 
   return {
@@ -634,9 +836,9 @@ export function verifierMur(d: DonneesMur): ResultatMur {
     lits,
     section,
     interne,
-    externe: [],
-    renversement: { nom: 'non calculé', Mdst: Number.NaN, Mstb: Number.NaN, taux: Number.NaN, conforme: false },
-    excentricite: null,
+    externe,
+    renversement,
+    excentricite,
     stabilite: [],
     gouvernant,
     alertes: [...alertes],
