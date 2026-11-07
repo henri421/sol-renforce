@@ -14,6 +14,14 @@
  * Squelette (T0) : types imposes par PLAN.md, fonctions a ecrire.
  */
 import type { Approche, Approche2e, Cercle, ClasseConsequences, ResultatCercle, Risque } from 'sol-ec7';
+import {
+  combinaisons1g,
+  combinaisons2g,
+  combinaisonsStabilite2g,
+  profil1g,
+  profil2g,
+  profilAnb2022,
+} from 'sol-ec7';
 
 export interface Geometrie {
   /** Hauteur du massif, de la base a la crete (m). */
@@ -192,8 +200,6 @@ export interface ResultatMur {
   gouvernant: { verification: string; combinaison: string; taux: number };
   alertes: string[];
 }
-
-const A_ECRIRE = 'a ecrire';
 
 const RAD = Math.PI / 180;
 
@@ -411,8 +417,183 @@ export function defautsGraviteCoherente(
   };
 }
 
+/** Jeu d'une combinaison interne, coefficients resolus. */
+interface JeuInterne {
+  nom: string;
+  /** Actions de calcul sur le poids et la surcharge du massif (gamma_G,dst, gamma_Q,dst). */
+  gGdst: number;
+  gQdst: number;
+  /** Action stabilisatrice gamma_G,stb, pour sigma_v,res. */
+  gGstb: number;
+  /** gamma_phi de Ka et de l'arrachement, et gamma_phi,po. */
+  gPhi: number;
+  gPhiPo: number;
+  /** gamma de la rupture et gamma_R,po de l'arrachement. */
+  gRt: number;
+  gRpo: number;
+  coefficients: ValeurNommee[];
+}
+
+const SRC_SAISI = "saisi par l'utilisateur (aucune valeur dans la norme)";
+const GAMMA_M0 = 1.0;
+const SRC_M0 = 'EN 1993-1-1, valeur recommandée, renvoyée par EN 1997-3:2025, tableau 9.4';
+const GAMMA_M_GS = 1.25;
+const SRC_M_GS = 'EN 1997-3:2025, tableau 9.4, valeur recommandée (γM,gs)';
+const GAMMA_R_PO_RES = 1.25;
+const SRC_R_PO_RES = 'EN 1997-3:2025, tableau 9.4, valeur recommandée, sans k_R';
+const SRC_R_PO_MAT = 'EN 1997-3:2025, tableau 9.4, approche par les matériaux, sans coefficient';
+
+/**
+ * Jeux des combinaisons internes : 1re generation, celles de combinaisons1g (gamma_Rt et
+ * gamma_R,po saisis) ; 2e generation, VC3 + M2 (approche par les materiaux) ou VC1 (approche
+ * par les resistances, gamma_R,po = 1,25 sans k_R, clause 9.6 et tableau 9.4).
+ */
+function jeuxInternes(d: DonneesMur): JeuInterne[] {
+  const a = d.armature;
+  if (d.generation === '1re') {
+    const c = d.coefficientsInternes1g;
+    if (c === null) {
+      throw new Error("Les coefficients internes de 1re génération (γRt, γRpo) doivent être saisis : aucune valeur par défaut dans la norme.");
+    }
+    const p = d.profilNormatif === 'anb2022' ? profilAnb2022(d.risque) : profil1g();
+    return combinaisons1g(d.approche, p).map((cb) => ({
+      nom: cb.nom,
+      gGdst: cb.geotechnique.gG_dst.valeur,
+      gQdst: cb.geotechnique.gQ_dst.valeur,
+      gGstb: cb.geotechnique.gG_stb.valeur,
+      gPhi: cb.sol.gPhi.valeur,
+      gPhiPo: cb.sol.gPhi.valeur,
+      gRt: c.gRt,
+      gRpo: c.gRpo,
+      coefficients: [
+        { nom: 'γφ', valeur: cb.sol.gPhi.valeur, source: cb.sol.gPhi.source },
+        { nom: 'γRt', valeur: c.gRt, source: SRC_SAISI },
+        { nom: 'γR,po', valeur: c.gRpo, source: SRC_SAISI },
+      ],
+    }));
+  }
+
+  const p2 = profil2g();
+  const rupture = a.type === 'acier'
+    ? { valeur: GAMMA_M0, source: SRC_M0 }
+    : { valeur: a.type === 'geosynthetique' ? a.gammaRd * GAMMA_M_GS : 1, source: `${SRC_M_GS} × γRd,gs saisi` };
+
+  if (d.facteurInterne === 'materiaux') {
+    const cb = combinaisonsStabilite2g(d.cc, p2)[0];
+    return [{
+      nom: cb.nom,
+      gGdst: cb.actions.gG_dst.valeur,
+      gQdst: cb.actions.gQ_dst.valeur,
+      gGstb: cb.actions.gG_stb.valeur,
+      gPhi: cb.sol.gPhi.valeur,
+      gPhiPo: cb.sol.gPhi.valeur,
+      gRt: rupture.valeur,
+      gRpo: 1,
+      coefficients: [
+        { nom: 'γφ', valeur: cb.sol.gPhi.valeur, source: cb.sol.gPhi.source },
+        { nom: 'γRt', valeur: rupture.valeur, source: rupture.source },
+        { nom: 'γR,po', valeur: 1, source: SRC_R_PO_MAT },
+      ],
+    }];
+  }
+
+  const cb = combinaisons2g('a+b', d.cc, p2)[0];
+  return [{
+    nom: 'VC1',
+    gGdst: cb.geotechnique.gG_dst.valeur,
+    gQdst: cb.geotechnique.gQ_dst.valeur,
+    gGstb: cb.geotechnique.gG_stb.valeur,
+    gPhi: cb.sol.gPhi.valeur,
+    gPhiPo: cb.sol.gPhi.valeur,
+    gRt: rupture.valeur,
+    gRpo: GAMMA_R_PO_RES,
+    coefficients: [
+      { nom: 'γφ', valeur: cb.sol.gPhi.valeur, source: cb.sol.gPhi.source },
+      { nom: 'γRt', valeur: rupture.valeur, source: rupture.source },
+      { nom: 'γR,po', valeur: GAMMA_R_PO_RES, source: SRC_R_PO_RES },
+    ],
+  }];
+}
+
+/**
+ * Calcul d'un lit (EN 1997-3:2025, 9.5 et 9.6) : K, sigma_v, T, longueurs, Rt, Rpo et taux.
+ * Le taux du lit est le plus defavorable de la rupture et de l'arrachement ; sans ancrage
+ * (Le = 0), Rpo = 0 et le taux d'arrachement est infini.
+ */
+function calculerInterne(d: DonneesMur, j: JeuInterne): ResultatInterne {
+  const g = d.geometrie;
+  const a = d.armature;
+  const phiR = d.remblaiRenforce.phiDeg;
+  const gamma = d.remblaiRenforce.gamma;
+  // Angle de calcul phi_d = atan(tan phi_r / gamma_phi) et Ka = tan²(45° − phi_d/2).
+  const phiD = Math.atan(Math.tan(phiR * RAD) / j.gPhi);
+  const Ka = Math.tan(Math.PI / 4 - phiD / 2) ** 2;
+  const section = a.type === 'acier' ? sectionReduite(a) : null;
+
+  const lits = positionsLits(g).map((lit): ResultatLit => {
+    const z = lit.z;
+    const sigmaV = j.gGdst * (gamma * z + d.qG) + j.gQdst * d.qQ;
+    let K = Ka;
+    if (a.type === 'acier') {
+      const kz = a.KsurKa0 + ((a.KsurKaZ0 - a.KsurKa0) * Math.min(z, a.z0)) / a.z0;
+      K = Ka * kz;
+    }
+    const T = K * sigmaV * lit.Sv;
+    const La = longueurActive(a, g.H, lit.h, phiR);
+    const Le = Math.max(0, g.L - La);
+    const sigmaRes = j.gGstb * (gamma * z + d.qG);
+
+    let Rt: number;
+    let Rpo: number;
+    if (a.type === 'acier' && section !== null) {
+      Rt = (a.nbParMetre * section.Ar * a.fy) / 1000 / j.gRt;
+      const mu = a.muPo0 + ((a.muPoZ0 - a.muPo0) * Math.min(z, a.z0)) / a.z0;
+      Rpo = (a.nbParMetre * 2 * (a.largeur / 1000) * Le * (mu / j.gPhiPo) * sigmaRes) / j.gRpo;
+    } else if (a.type === 'geosynthetique') {
+      Rt = (a.etaGs * a.Tk) / j.gRt;
+      Rpo = (2 * a.Rc * Le * a.kpo * (Math.tan(phiR * RAD) / j.gPhiPo) * sigmaRes) / j.gRpo;
+    } else {
+      throw new Error('Type d armature inconnu.');
+    }
+
+    const tauxRupture = T / Rt;
+    const tauxArrachement = Rpo > 0 ? T / Rpo : Number.POSITIVE_INFINITY;
+    return {
+      ...lit,
+      K,
+      sigmaV,
+      T,
+      La,
+      Le,
+      Rt,
+      Rpo,
+      tauxRupture,
+      tauxArrachement,
+      taux: Math.max(tauxRupture, tauxArrachement),
+    };
+  });
+
+  const tauxMax = Math.max(...lits.map((l) => l.taux));
+  return {
+    nom: j.nom,
+    Ka,
+    phi_d: phiD / RAD,
+    lits,
+    tauxMax,
+    conforme: tauxMax <= 1,
+    coefficients: j.coefficients,
+  };
+}
+
+/** Nom du profil de coefficients retenu (1re generation : recommande ou ANB 2022 ; 2e : profil2g). */
+function nomProfil(d: DonneesMur): string {
+  if (d.generation === '2e') return profil2g().nom;
+  return d.profilNormatif === 'anb2022' ? profilAnb2022(d.risque).nom : profil1g().nom;
+}
+
 export function verifierMur(d: DonneesMur): ResultatMur {
   verifierSaisie(d);
+  let section: ResultatMur['section'] = null;
   if (d.armature.type === 'acier') {
     const a = d.armature;
     // Limites de 9.3.4, dans cet ordre : la limite d'elasticite avant la section reduite.
@@ -426,6 +607,38 @@ export function verifierMur(d: DonneesMur): ResultatMur {
     if (s.rapport < 0.5) {
       throw new Error(`La section réduite Ar = ${fr(s.Ar, 1)} mm² est inférieure à 50 % de A0 = ${fr(s.A0, 1)} mm² après corrosion : refus (EN 1997-3:2025, 9.3.4).`);
     }
+    section = { deltaE: perteEpaisseur(a), A0: s.A0, Ar: s.Ar, rapport: s.rapport };
   }
-  throw new Error(A_ECRIRE);
+
+  const lits = positionsLits(d.geometrie);
+  const interne = jeuxInternes(d).map((j) => calculerInterne(d, j));
+
+  const alertes = new Set<string>();
+  for (const i of interne) {
+    for (const l of i.lits) {
+      if (l.Le === 0) {
+        alertes.add(`Longueur d'ancrage nulle au lit h = ${fr(l.h)} m : arrachement nul, taux infini.`);
+      }
+    }
+  }
+  if (d.geometrie.L < 0.7 * d.geometrie.H) {
+    alertes.add('L < 0,7·H : en dessous de la longueur minimale usuelle (FHWA)');
+  }
+
+  // Gouvernant : a ce stade, seule la stabilite interne est calculee (T4 et T5 ajoutent le reste).
+  const candidats = interne.map((i) => ({ verification: 'interne', combinaison: i.nom, taux: i.tauxMax }));
+  const gouvernant = candidats.reduce((m, c) => (c.taux > m.taux ? c : m));
+
+  return {
+    profil: nomProfil(d),
+    lits,
+    section,
+    interne,
+    externe: [],
+    renversement: { nom: 'non calculé', Mdst: Number.NaN, Mstb: Number.NaN, taux: Number.NaN, conforme: false },
+    excentricite: null,
+    stabilite: [],
+    gouvernant,
+    alertes: [...alertes],
+  };
 }
