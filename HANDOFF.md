@@ -171,3 +171,30 @@ Commit : `300c9c1`.
 - `typecheck.mjs .` : 0 erreur.
 - Suite complète (`lancer.mjs .`) non lancée dans cette tâche.
 - Aucun fichier de `tests/`, `src/`, `note.ts`, `export.ts`, `vue.ts`, `dessin.ts` ni `package.json` modifié.
+
+## T2 interface
+
+**Fichiers modifiés**
+- `app/src/vue.ts` : `entreesParSection`, `blocEntrees`, `blocsResultat`, `verdictsHtml`, `voletsHtml`, `litsHtml`, `messageDErreur`, écrits sur le gabarit de `stabilite-talus`, sans calcul.
+- `app/src/textes.ts` : blocs `vue`, `entrees` et `resultats` ajoutés à FR et à EN. `messages`, `clauses`, `verifications`, `note`, `refus` et `page` ne changent pas.
+
+**Décisions**
+- `data-verification` vaut le nom de la combinaison pour la stabilité générale et l'interne, et `portance`, `glissement`, `excentricite`, `renversement` pour l'externe (la combinaison la plus chargée de chaque famille).
+- Le mot « gouvernant » marque la carte dont (verification, combinaison) égalent `r.gouvernant`. L'excentricité est repérée par sa seule verification, car le noyau la nomme « caractéristique ».
+- `voletsHtml(r)` n'a pas la géométrie ni l'armature en entrée : le géosynthétique est reconnu à `r.section === null` (le noyau ne rend `section` que pour l'acier).
+- Entrées : `h_1` pour le premier lit, `cercle` seulement si imposé, `CC` en 2e, `approche` et `γ_Rt`, `γ_R,po` en 1re (`risque` seulement en ANB), `cas` et `interne` en 2e.
+- Alerte du noyau « m_α » : `_α` s'écrit `_alpha` avant `notationHtml`, car `lireIndice` n'accepte que l'ASCII. Présentation seulement.
+- Nombres : `nombreAffiche` (zéros inutiles retirés). Taux : `tauxAffiche` directement, qui rend « hors domaine » pour un infini ou un NaN.
+- `γ_Rd,gs` est affiché pour le géosynthétique dans les deux générations, car le noyau l'utilise en 1re (γRt = γRd × γM,gs).
+
+**Points douteux**
+- BLOQUANT : `vue.test` a 16 échecs, tous du même constat `constatsAffichage` : « apostrophe manquante : "...de longueur L uniforme." ». La phrase vient de `textes().note.hypotheses[0]` (FR : « Massif rectangulaire à parement vertical ; armatures horizontales de longueur L uniforme. »). Le motif `[dlnDLN] (?=voyelle)` lit « L uniforme » comme « l'uniforme ». Le texte est dans la partie `note`, que l'exécutant ne modifie pas, et les volets doivent le rendre tel quel. Les autres assertions de `vue.test` passent (54/70). Correction à décider en conception : reformuler la phrase (par exemple « armatures horizontales, toutes de longueur L »), puis relancer.
+- Textes EN ajoutés mais non relus ; les règles de `phrase` (T5) ne sont pas écrites, donc les noms de combinaisons restent en français dans la version anglaise.
+
+**Statut des tests**
+- `vue.test` : 54 réussis, 16 échecs (constat d'apostrophe ci-dessus).
+- `form.test` : 21 réussis, 0 échec. `page.test` : 13 réussis, 0 échec.
+- `typecheck` : 0 erreur.
+- Non commité : tâche arrêtée sur un test jugé faux, selon la consigne. Aucun push, aucun tag.
+
+Audit T2 (seance de conception) : le test signale etait juste, la phrase fautive etait la mienne. note.hypotheses[0] reformulee (« armatures horizontales, toutes de longueur L. »). vue.test 70/70, form.test 21/21, page.test 13/13, typage 0 erreur. Le contournement _alpha des alertes reste a juger avec note.test et anglais.test.
