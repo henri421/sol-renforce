@@ -115,6 +115,7 @@ const FR = {
     milieu: 'milieu',
     milieux: { terrestre: 'terrestre', eau_douce: 'eau douce' },
     dureeVie: 'durée d’utilisation de projet',
+    uniteDureeVie: 'ans',
     repartition: 'répartition de la résistance',
     repartitions: { uniforme: 'uniforme', non_uniforme: 'non uniforme' },
     KsurKa0: 'K/K_a en tête',
@@ -340,6 +341,7 @@ const EN: Textes = {
     milieu: 'environment',
     milieux: { terrestre: 'terrestrial', eau_douce: 'fresh water' },
     dureeVie: 'design life of the project',
+    uniteDureeVie: 'years',
     repartition: 'distribution of the resistance',
     repartitions: { uniforme: 'uniform', non_uniforme: 'non-uniform' },
     KsurKa0: 'K/K_a at the top',
@@ -474,11 +476,243 @@ export function ponctuer(s: string): string {
 
 // --- Phrases du noyau : traduites en anglais seulement ; en francais, phrase() rend le texte intact --
 
-/** Phrases exactes du noyau (sources, alertes, refus). A completer en T5. */
-const EXACTES: Record<string, string> = {};
+/** Nombres du noyau : la virgule decimale francaise devient un point. */
+const nombreEn = (s: string): string => s.replace(/(\d),(\d)/g, '$1.$2');
 
-/** Regles par motif, la derniere attrape tout. A completer en T5. */
-const REGLES: [RegExp, (_m: string, ...g: string[]) => string][] = [];
+/** Risques de l'ANB:2022, tels qu'ils figurent dans le nom du profil. */
+const RISQUE_EN: Record<string, string> = {
+  faible: 'low risk',
+  normal: 'normal risk',
+  'élevé': 'high risk',
+  eleve: 'high risk',
+};
+
+/** Noms des grandeurs du noyau, dans les messages de refus. */
+const NOMS_EN: Record<string, string> = {
+  "Le nombre de feuillards par mètre n": 'The number of strips per metre n',
+  'La largeur b du feuillard': 'The strip width b',
+  "L'épaisseur e du feuillard": 'The strip thickness e',
+  "La limite d'élasticité fy": 'The yield strength fy',
+  "La durée d'utilisation de projet": 'The design life',
+  'Le rapport K/Ka en tête': 'The ratio K/Ka at the top',
+  'Le rapport K/Ka à z0': 'The ratio K/Ka at z0',
+  'La profondeur z0': 'The depth z0',
+  'Le coefficient μpo,0': 'The coefficient μpo,0',
+  'Le coefficient μpo,z0': 'The coefficient μpo,z0',
+  'La résistance caractéristique Tk': 'The characteristic resistance Tk',
+  "Le facteur d'arrachement kpo": 'The pull-out factor kpo',
+  'La hauteur H': 'The height H',
+  'La longueur L des armatures': 'The reinforcement length L',
+  "L'espacement vertical Sv": 'The vertical spacing Sv',
+  'La hauteur du premier lit': 'The height of the first layer',
+  'Le poids volumique γ du remblai renforcé': 'The unit weight γ of the reinforced fill',
+  'Le poids volumique γ du remblai retenu': 'The unit weight γ of the retained fill',
+  'Le poids volumique γ de la fondation': 'The unit weight γ of the foundation',
+  "La cohésion c' de la fondation": "The cohesion c' of the foundation",
+  'La cohésion non drainée c_u de la fondation': 'The undrained cohesion c_u of the foundation',
+  'La surcharge permanente qG': 'The permanent surcharge qG',
+  'La surcharge variable qQ': 'The variable surcharge qQ',
+  'Le coefficient interne γRt': 'The internal factor γRt',
+  'Le coefficient interne γRpo': 'The internal factor γRpo',
+  'du remblai renforcé': 'of the reinforced fill',
+  'du remblai retenu': 'of the retained fill',
+  'de la fondation': 'of the foundation',
+};
+
+/** Sources des coefficients : les tournures communes a toute la suite. */
+const sourceEn = (s: string): string =>
+  s
+    .replace(/valeurs recommandées/g, 'recommended values')
+    .replace(/valeur recommandée/g, 'recommended value')
+    .replace(/valeur caractéristique/g, 'characteristic value')
+    .replace(/coefficient à 1/g, 'coefficient of 1')
+    .replace(/facteur de conséquence/g, 'consequence factor')
+    .replace(/action variable favorable non comptée/g, 'favourable variable action not counted')
+    .replace(/action variable favorable/g, 'favourable variable action')
+    .replace(/approche par les matériaux/g, 'material approach')
+    .replace(/approche par les résistances/g, 'resistance approach')
+    .replace(/sans facteur de résistance/g, 'no resistance factor')
+    .replace(/absent de l'ANB:2022/g, 'absent from ANB:2022')
+    .replace(/imposée/g, 'imposed')
+    .replace(/tableau /g, 'table ')
+    .replace(/sans coefficient/g, 'no factor')
+    .replace(/, jeu /g, ', set ')
+    .replace(/jeu /g, 'set ')
+    .replace(/saisi par l'utilisateur/g, 'entered by the user')
+    .replace(/aucune valeur dans la norme/g, 'no value in the standard')
+    .replace(/renvoyée par/g, 'referred to by')
+    .replace(/ × γRd,gs saisi/g, ' × γRd,gs entered')
+    .replace(/sans k_R/g, 'no k_R')
+    .replace(/répartition/g, 'distribution')
+    .replace(/(\d+)\s+ans\b/g, '$1 years')
+    .replace(/\bdurée\b/g, 'duration')
+    .replace(/\bdu\b/g, 'of');
+
+/** Phrases exactes du noyau (sources, alertes, refus). */
+const EXACTES: Record<string, string> = {
+  ...NOMS_EN,
+
+  // Unites des messages de refus.
+  'sans unité': 'unitless',
+  ans: 'years',
+
+  // Noms de profils et de combinaisons.
+  'EN 1997-1:2004, valeurs recommandées': 'EN 1997-1:2004, recommended values',
+  'EN 1990:2023 et EN 1997:2024-2025, valeurs recommandées':
+    'EN 1990:2023 and EN 1997:2024-2025, recommended values',
+  'valeur caractéristique, coefficient à 1': 'characteristic value, coefficient of 1',
+  caractéristique: 'characteristic',
+
+  // Sources des coefficients internes.
+  "saisi par l'utilisateur (aucune valeur dans la norme)":
+    'entered by the user (no value in the standard)',
+  'EN 1993-1-1, valeur recommandée, renvoyée par EN 1997-3:2025, tableau 9.4':
+    'EN 1993-1-1, recommended value, referred to by EN 1997-3:2025, table 9.4',
+  'EN 1997-3:2025, tableau 9.4, valeur recommandée (γM,gs)':
+    'EN 1997-3:2025, table 9.4, recommended value (γM,gs)',
+  'EN 1997-3:2025, tableau 9.4, valeur recommandée, sans k_R':
+    'EN 1997-3:2025, table 9.4, recommended value, no k_R',
+  'EN 1997-3:2025, tableau 9.4, approche par les matériaux, sans coefficient':
+    'EN 1997-3:2025, table 9.4, material approach, no factor',
+
+  // Noms des coefficients affiches dans les volets.
+  'K/Ka en tête': 'K/Ka at the top',
+  'K/Ka à z0 et au-delà': 'K/Ka at z0 and below',
+  'μpo en tête': 'μpo at the top',
+  'μpo à z0': 'μpo at z0',
+
+  // Alertes du noyau.
+  "Longueur d'ancrage nulle au lit h = 0,38 m : arrachement nul, taux infini.":
+    'Zero anchorage length at layer h = 0.38 m: zero pull-out resistance, infinite ratio.',
+  "La résultante sort de la base du massif (B' ≤ 0) : portance non calculée, taux infini.":
+    "The resultant lies outside the base of the block (B' ≤ 0): bearing not calculated, infinite ratio.",
+  'L < 0,7·H : en dessous de la longueur minimale usuelle (FHWA)':
+    'L < 0.7·H: below the usual minimum length (FHWA)',
+  'm_α borné à 0,2 : sortie de glissement raide': 'm_α capped at 0.2: steep slip exit',
+
+  // Motifs de refus d'un cercle (sol-ec7).
+  'le cercle ne coupe pas le terrain': 'the circle does not cut the ground',
+  'le cercle coupe le terrain en plusieurs points': 'the circle cuts the ground at several points',
+  "l'arc de glissement sort du profil": 'the slip arc goes beyond the profile',
+  "l'arc ne rejoint pas le terrain (le cercle reste sous le terrain)":
+    'the arc does not meet the ground (the circle stays below it)',
+  'moment moteur nul ou négatif dans le sens du glissement':
+    'driving moment zero or negative in the sliding direction',
+  'F non physique (numérateur nul ou négatif)': 'F not physical (numerator zero or negative)',
+  'le cercle sort par le parement': 'the circle exits through the facing',
+  'le cercle ne coupe pas le massif': 'the circle does not cut the block',
+  'le cercle passe sous la base du massif': 'the circle passes below the base of the block',
+};
+
+/** Regles par motif, la derniere attrape tout. */
+const REGLES: [RegExp, (_m: string, ...g: string[]) => string][] = [
+  // Profil normatif qui impose son approche.
+  [
+    /^Le profil (.+) impose l'approche (\S+) ; l'approche (\S+) est refusée\.$/,
+    (_m: string, profil: string, a: string, b: string) =>
+      `The profile ${phrase(profil)} requires approach ${a}; approach ${b} is refused.`,
+  ],
+  [
+    /^NBN EN 1997-1 ANB:2022, risque (faible|normal|élevé|eleve), DA1 imposée$/,
+    (_m: string, r: string) => `NBN EN 1997-1 ANB:2022, ${RISQUE_EN[r]}, DA1 imposed`,
+  ],
+
+  // Refus de la saisie.
+  [
+    /^L'angle de frottement φ (.+) doit être strictement compris entre 0 et 90 degrés \(φ = (.+)\)\.$/,
+    (_m: string, nom: string, v: string) =>
+      `The friction angle φ ${phrase(nom)} must lie strictly between 0 and 90 degrees (φ = ${nombreEn(v)}).`,
+  ],
+  [
+    /^La hauteur du premier lit \((.+) m\) doit être inférieure à H \((.+) m\)\.$/,
+    (_m: string, a: string, b: string) =>
+      `The height of the first layer (${nombreEn(a)} m) must be less than H (${nombreEn(b)} m).`,
+  ],
+  [
+    /^L'encastrement D doit être positif ou nul et inférieur à H \((.+) m\) : valeur saisie (.+) m\.$/,
+    (_m: string, h: string, d: string) =>
+      `The embedment D must be zero or positive and less than H (${nombreEn(h)} m): entered value ${nombreEn(d)} m.`,
+  ],
+  [
+    /^La fondation drainée exige l'angle de frottement φ' de la fondation\.$/,
+    () => "The drained foundation requires the friction angle φ' of the foundation.",
+  ],
+  [
+    /^Les coefficients internes de 1re génération \(γRt, γRpo\) doivent être saisis : aucune valeur par défaut dans la norme\.$/,
+    () =>
+      'The internal factors of the 1st generation (γRt, γRpo) must be entered: neither standard gives a default value.',
+  ],
+  [
+    /^Le facteur de réduction η_gs doit être dans \]0 ; 1\] \(sans unité\) ; valeur saisie : (.+)\.$/,
+    (_m: string, v: string) =>
+      `The reduction factor η_gs must lie within ]0; 1] (unitless); entered value: ${nombreEn(v)}.`,
+  ],
+  [
+    /^Le taux de couverture Rc doit être dans \]0 ; 1\] \(sans unité\) ; valeur saisie : (.+)\.$/,
+    (_m: string, v: string) =>
+      `The coverage ratio Rc must lie within ]0; 1] (unitless); entered value: ${nombreEn(v)}.`,
+  ],
+  [
+    /^Le facteur de modèle γRd,gs doit être supérieur ou égal à 1 \(sans unité\) ; valeur saisie : (.+)\.$/,
+    (_m: string, v: string) =>
+      `The model factor γRd,gs must be greater than or equal to 1 (unitless); entered value: ${nombreEn(v)}.`,
+  ],
+
+  // Limites de l'acier et section apres corrosion.
+  [
+    /^La limite d'élasticité fy = (.+) MPa dépasse (\d+) MPa pour un acier non galvanisé : refus \(EN 1997-3:2025, 9\.3\.4\)\.$/,
+    (_m: string, fy: string, lim: string) =>
+      `The yield strength fy = ${nombreEn(fy)} MPa exceeds ${lim} MPa for non-galvanised steel: refused (EN 1997-3:2025, 9.3.4).`,
+  ],
+  [
+    /^La limite d'élasticité fy = (.+) MPa dépasse (\d+) MPa pour un acier galvanisé : refus \(EN 1997-3:2025, 9\.3\.4\)\.$/,
+    (_m: string, fy: string, lim: string) =>
+      `The yield strength fy = ${nombreEn(fy)} MPa exceeds ${lim} MPa for galvanised steel: refused (EN 1997-3:2025, 9.3.4).`,
+  ],
+  [
+    /^La section réduite Ar = (.+) mm² est inférieure à 50 % de A0 = (.+) mm² après corrosion : refus \(EN 1997-3:2025, 9\.3\.4\)\.$/,
+    (_m: string, ar: string, a0: string) =>
+      `The reduced section Ar = ${nombreEn(ar)} mm² is less than 50 % of A0 = ${nombreEn(a0)} mm² after corrosion: refused (EN 1997-3:2025, 9.3.4).`,
+  ],
+
+  // Cercles de stabilite generale.
+  [
+    /^Le cercle imposé \((.+)\) est refusé pour la combinaison (.+) : (.+)\.$/,
+    (_m: string, coord: string, cb: string, motif: string) =>
+      `The imposed circle (${nombreEn(coord)}) is refused for combination ${phrase(cb)}: ${phrase(motif)}.`,
+  ],
+  [
+    /^Aucun cercle valide pour la combinaison (.+) : la recherche du cercle critique n'aboutit pas\.$/,
+    (_m: string, cb: string) =>
+      `No valid circle for combination ${phrase(cb)}: the search for the critical circle does not converge.`,
+  ],
+  [
+    /^Bishop ne converge pas en (\d+) itérations$/,
+    (_m: string, n: string) => `Bishop does not converge in ${n} iterations`,
+  ],
+
+  // Alertes parametrees.
+  [
+    /^Longueur d'ancrage nulle au lit h = (.+) m : arrachement nul, taux infini\.$/,
+    (_m: string, h: string) =>
+      `Zero anchorage length at layer h = ${nombreEn(h)} m: zero pull-out resistance, infinite ratio.`,
+  ],
+
+  // Refus generiques du noyau (nom et unite).
+  [
+    /^(.+) doit être un nombre strictement positif \((.+)\)\.$/,
+    (_m: string, nom: string, unite: string) =>
+      `${phrase(nom)} must be a strictly positive number (${phrase(unite)}).`,
+  ],
+  [
+    /^(.+) doit être un nombre positif ou nul \((.+)\)\.$/,
+    (_m: string, nom: string, unite: string) =>
+      `${phrase(nom)} must be a zero or positive number (${phrase(unite)}).`,
+  ],
+
+  // Derniere regle : les sources des coefficients et les tournures communes.
+  [/^([\s\S]*)$/, (_m: string, s: string) => sourceEn(nombreEn(s))],
+];
 
 /** Traduction d'une phrase du noyau, ou de la saisie, au rendu seulement. */
 export const phrase = traducteur(EXACTES, REGLES);

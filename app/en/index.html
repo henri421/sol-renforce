@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Reinforced soil wall — stability, rupture, pull-out, sliding, bearing, overturning</title>
+    <meta
+      name="description"
+      content="Verification of a reinforced soil wall (steel strips or geosynthetic) according to Eurocode 7, in both generations: overall stability, rupture and pull-out, sliding, bearing, overturning."
+    />
+    <meta name="theme-color" content="#f7f7f6" />
+  </head>
+  <body>
+    <div class="barre">
+      <div class="barre-corps">
+        <span class="barre-nom">webaedificium</span>
+        <div class="barre-actions">
+          <a class="barre-lien" href="https://henri421.github.io/WebAedificium/" target="_blank" rel="noopener">Suite</a>
+          <a class="barre-langue" href="../" hreflang="fr" lang="fr">FR</a>
+        </div>
+      </div>
+    </div>
+
+    <header>
+      <h1>Reinforced soil wall</h1>
+      <p class="sous-titre">
+        Overall stability, rupture and pull-out, sliding, bearing, overturning and eccentricity of a wall with a vertical
+        face, in 1<sup>st</sup> or 2<sup>nd</sup> generation.
+      </p>
+      <p class="avertissement">
+        Not covered: inclined face, reinforced slopes and base reinforcement, reinforcements of variable length, water
+        table in the block, seismic action, serviceability limit states.
+      </p>
+    </header>
+
+    <main>
+      <section id="saisie" aria-label="Input">
+        <form id="formulaire" autocomplete="off" novalidate>
+          <fieldset>
+            <legend>Geometry (m)</legend>
+            <label>
+              <span>Height of the block H</span>
+              <input type="text" inputmode="decimal" data-champ="H" />
+            </label>
+            <label>
+              <span>Reinforcement length L</span>
+              <input type="text" inputmode="decimal" data-champ="L" />
+            </label>
+            <label>
+              <span>Embedment D</span>
+              <input type="text" inputmode="decimal" data-champ="D" />
+            </label>
+            <label>
+              <span>First layer (above the base)</span>
+              <input type="text" inputmode="decimal" data-champ="premierLit" />
+            </label>
+            <label>
+              <span>Vertical spacing S<sub>v</sub></span>
+              <input type="text" inputmode="decimal" data-champ="Sv" />
+            </label>
+            <p class="note">
+              The layers are computed from the base up to H at spacing S<sub>v</sub>; their number is read from the
+              results. The length is uniform over all the layers.
+            </p>
+          </fieldset>
+
+          <fieldset>
+            <legend>Soils</legend>
+            <div class="sous-titre">Reinforced fill</div>
+            <label>
+              <span>γ (kN/m³)</span>
+              <input type="text" inputmode="decimal" data-champ="gammaR" />
+            </label>
+            <label>
+              <span>φ’k (°)</span>
+              <input type="text" inputmode="decimal" data-champ="phiR" />
+            </label>
+            <div class="sous-titre">Retained fill</div>
+            <label>
+              <span>γ (kN/m³)</span>
+              <input type="text" inputmode="decimal" data-champ="gammaB" />
+            </label>
+            <label>
+              <span>φ’k (°)</span>
+              <input type="text" inputmode="decimal" data-champ="phiB" />
+            </label>
+            <div class="sous-titre">Foundation soil</div>
+            <div class="boutons">
+              <button type="button" data-drainage="draine" aria-pressed="true">Drained</button>
+              <button type="button" data-drainage="non_draine" aria-pressed="false">Undrained</button>
+            </div>
+            <label>
+              <span>γ (kN/m³)</span>
+              <input type="text" inputmode="decimal" data-champ="gammaF" />
+            </label>
+            <div data-si-drainage="draine">
+              <label>
+                <span>φ’k (°)</span>
+                <input type="text" inputmode="decimal" data-champ="phiF" />
+              </label>
+              <label>
+                <span>c’k (kPa)</span>
+                <input type="text" inputmode="decimal" data-champ="cF" />
+              </label>
+            </div>
+            <div data-si-drainage="non_draine">
+              <label>
+                <span>c<sub>u,k</sub> (kPa)</span>
+                <input type="text" inputmode="decimal" data-champ="cuF" />
+              </label>
+            </div>
+            <p class="note">Undrained: c<sub>u,k</sub> replaces φ’k and c’k in the foundation calculation.</p>
+          </fieldset>
+
+          <fieldset>
+            <legend>Surcharges on the crest (kPa)</legend>
+            <label>
+              <span>Permanent q<sub>G</sub></span>
+              <input type="text" inputmode="decimal" data-champ="qG" />
+            </label>
+            <label>
+              <span>Variable q<sub>Q</sub></span>
+              <input type="text" inputmode="decimal" data-champ="qQ" />
+            </label>
+            <p class="note">
+              Uniform over the whole crest, above both the block and the retained fill. The variable one is not counted
+              in the resistances (pull-out, sliding).
+            </p>
+          </fieldset>
+
+          <fieldset>
+            <legend>Reinforcement</legend>
+            <div class="boutons">
+              <button type="button" data-armature="acier" aria-pressed="true">Steel strips</button>
+              <button type="button" data-armature="geosynthetique" aria-pressed="false">Geosynthetic</button>
+            </div>
+
+            <div data-si-armature="acier">
+              <label>
+                <span>Strips per metre and per layer</span>
+                <input type="text" inputmode="decimal" data-champ="nbParMetre" />
+              </label>
+              <label>
+                <span>Width (mm)</span>
+                <input type="text" inputmode="decimal" data-champ="largeur" />
+              </label>
+              <label>
+                <span>Thickness (mm)</span>
+                <input type="text" inputmode="decimal" data-champ="epaisseur" />
+              </label>
+              <label>
+                <span>f<sub>y</sub> (MPa)</span>
+                <input type="text" inputmode="decimal" data-champ="fy" />
+              </label>
+              <div class="sous-titre">Corrosion (EN 1997-3, 9.3.4)</div>
+              <label>
+                <span>Protection</span>
+                <select data-champ="galvanise">
+                  <option value="oui">Galvanised</option>
+                  <option value="non">Not galvanised</option>
+                </select>
+              </label>
+              <label>
+                <span>Environment</span>
+                <select data-champ="milieu">
+                  <option value="terrestre">Terrestrial</option>
+                  <option value="eau_douce">Fresh water</option>
+                </select>
+              </label>
+              <label>
+                <span>Design life (years)</span>
+                <input type="text" inputmode="decimal" data-champ="dureeVie" />
+              </label>
+              <label>
+                <span>Section</span>
+                <select data-champ="repartition">
+                  <option value="uniforme">Uniform resistance</option>
+                  <option value="non_uniforme">Non-uniform or unknown</option>
+                </select>
+              </label>
+              <div class="sous-titre">Coherent gravity (F.3.2)</div>
+              <label>
+                <span>K/Ka at the top</span>
+                <input type="text" inputmode="decimal" data-champ="KsurKa0" />
+              </label>
+              <label>
+                <span>K/Ka at z<sub>0</sub> and below</span>
+                <input type="text" inputmode="decimal" data-champ="KsurKaZ0" />
+              </label>
+              <label>
+                <span>z<sub>0</sub> (m)</span>
+                <input type="text" inputmode="decimal" data-champ="z0" />
+              </label>
+              <label>
+                <span>μ<sub>po</sub> at the top</span>
+                <input type="text" inputmode="decimal" data-champ="muPo0" />
+              </label>
+              <label>
+                <span>μ<sub>po</sub> at z<sub>0</sub></span>
+                <input type="text" inputmode="decimal" data-champ="muPoZ0" />
+              </label>
+              <div class="boutons">
+                <button type="button" data-action="defauts-fhwa">FHWA values</button>
+              </div>
+              <p class="source">
+                Default values: FHWA-NHI-10-024 (μ<sub>po,0</sub> = min(2; 1.2 + log C<sub>u</sub>), C<sub>u</sub> = 4;
+                μ<sub>po,z0</sub> = tan φ’r). EN 1997-3 leaves their determination to tests or to comparable experience.
+              </p>
+            </div>
+
+            <div data-si-armature="geosynthetique">
+              <label>
+                <span>T<sub>k</sub> (kN/m)</span>
+                <input type="text" inputmode="decimal" data-champ="Tk" />
+              </label>
+              <label>
+                <span>η<sub>gs</sub></span>
+                <input type="text" inputmode="decimal" data-champ="etaGs" />
+              </label>
+              <label>
+                <span>γ<sub>Rd,gs</sub></span>
+                <input type="text" inputmode="decimal" data-champ="gammaRd" />
+              </label>
+              <label>
+                <span>Coverage ratio R<sub>c</sub></span>
+                <input type="text" inputmode="decimal" data-champ="Rc" />
+              </label>
+              <label>
+                <span>k<sub>po</sub></span>
+                <input type="text" inputmode="decimal" data-champ="kpo" />
+              </label>
+              <p class="note">
+                The line of maximum tension becomes the Rankine wedge (F.3.3), at 45° − φ’/2; the factor η<sub>gs</sub>
+                groups the conversion factors.
+              </p>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>General stability circle</legend>
+            <div class="boutons">
+              <button type="button" data-cercle="recherche" aria-pressed="true">Search for the critical</button>
+              <button type="button" data-cercle="impose" aria-pressed="false">Impose</button>
+            </div>
+            <div data-si-cercle="impose">
+              <label>
+                <span>Abscissa x<sub>c</sub> (m)</span>
+                <input type="text" inputmode="decimal" data-champ="xc" />
+              </label>
+              <label>
+                <span>Ordinate y<sub>c</sub> (m)</span>
+                <input type="text" inputmode="decimal" data-champ="yc" />
+              </label>
+              <label>
+                <span>Radius R (m)</span>
+                <input type="text" inputmode="decimal" data-champ="R" />
+              </label>
+            </div>
+            <p class="note">
+              The search keeps only the circles that exit at the toe or in front: a circle exiting through the face would
+              cut a slice held by the face, outside the model.
+            </p>
+          </fieldset>
+
+          <fieldset>
+            <legend>Generation and factors</legend>
+            <div class="boutons">
+              <button type="button" data-generation="1re" aria-pressed="false">1<sup>st</sup> generation (2004)</button>
+              <button type="button" data-generation="2e" aria-pressed="true">2<sup>nd</sup> generation (2023-2025)</button>
+            </div>
+
+            <div data-groupe="1re" hidden>
+              <label>
+                <span>Factors</span>
+                <select data-champ="profilNormatif">
+                  <option value="recommande">Recommended values</option>
+                  <option value="anb2022">NBN EN 1997-1 ANB:2022</option>
+                </select>
+              </label>
+              <div data-si-profil="anb2022" hidden>
+                <label>
+                  <span>Risk</span>
+                  <select data-champ="risque">
+                    <option value="faible">Low</option>
+                    <option value="normal">Normal</option>
+                    <option value="eleve">High</option>
+                  </select>
+                </label>
+              </div>
+              <label>
+                <span>Design approach</span>
+                <select data-champ="approche1">
+                  <option value="DA1">DA1 (combinations 1 and 2)</option>
+                  <option value="DA2">DA2</option>
+                  <option value="DA3">DA3</option>
+                </select>
+              </label>
+              <label>
+                <span>Divisor γ<sub>Rt</sub> (rupture)</span>
+                <input type="text" inputmode="decimal" placeholder="to enter" data-champ="gRt" />
+              </label>
+              <label>
+                <span>Divisor γ<sub>R,po</sub> (pull-out)</span>
+                <input type="text" inputmode="decimal" placeholder="to enter" data-champ="gRpo" />
+              </label>
+              <p class="note">
+                With ANB:2022, the approach is fixed to DA1 (greyed list) and the risk (low, normal, high) is taken into
+                account. The two divisors block the calculation as long as they are empty: neither EN 1997-1:2004 nor the
+                ANB gives these factors.
+              </p>
+            </div>
+
+            <div data-groupe="2e">
+              <label>
+                <span>Consequence class</span>
+                <select data-champ="consequences">
+                  <option value="CC1">CC1</option>
+                  <option value="CC2">CC2</option>
+                  <option value="CC3">CC3</option>
+                </select>
+              </label>
+              <label>
+                <span>External</span>
+                <select data-champ="approche2e">
+                  <option value="a+b">(a) + (b)</option>
+                  <option value="c">(c)</option>
+                  <option value="d">(d)</option>
+                </select>
+              </label>
+              <label>
+                <span>Internal</span>
+                <select data-champ="facteurInterne">
+                  <option value="materiaux">Material approach</option>
+                  <option value="resistances">Resistance approach</option>
+                </select>
+              </label>
+              <p class="note">
+                The 2<sup>nd</sup> generation offers the consequence class, the external case, then the internal
+                approach: VC3 + M2 by materials, VC1 by resistances (EN 1997-3, table 9.4).
+              </p>
+            </div>
+
+            <p class="note">Switching generation keeps the data.</p>
+          </fieldset>
+        </form>
+      </section>
+
+      <div class="colonne">
+        <section id="sorties" aria-label="Results">
+          <h2>Results</h2>
+          <p class="erreur" data-role="erreur" hidden></p>
+          <div data-role="verdicts"></div>
+          <div data-role="volets"></div>
+          <details>
+            <summary>Reinforcement layers</summary>
+            <div data-role="lits"></div>
+          </details>
+        </section>
+
+        <section aria-label="Drawing">
+          <h2>Drawing</h2>
+          <p class="note">A section to real scale, same scale in x and y. The governing case opens first.</p>
+          <div class="boutons" data-role="vues"></div>
+          <div class="boutons">
+            <label class="case">
+              <input type="checkbox" data-option="cotes" checked />
+              <span>Dimensions</span>
+            </label>
+            <label class="case">
+              <input type="checkbox" data-option="tractions" checked />
+              <span>Line of maximum tension</span>
+            </label>
+          </div>
+          <div data-role="coupe"></div>
+        </section>
+
+        <section aria-label="Exports">
+          <h2>Exports</h2>
+          <div class="boutons">
+            <button type="button" class="principal" data-action="exporter-note">Calculation note</button>
+            <button type="button" data-action="exporter-coupe">Section (SVG)</button>
+            <button type="button" data-action="exporter-resultats">Results (CSV)</button>
+            <button type="button" data-action="enregistrer">Input (JSON)</button>
+            <button type="button" data-action="reinitialiser">Reset</button>
+          </div>
+          <label>
+            <span>Open a saved input</span>
+            <input type="file" data-role="ouvrir" accept=".json,application/json" />
+          </label>
+          <label>
+            <span>Project</span>
+            <input type="text" data-role="projet" />
+          </label>
+          <label>
+            <span>Element</span>
+            <input type="text" data-role="element" />
+          </label>
+          <p class="note">
+            The common note of the suite: data, factors with their sources, table of layers, section, each check with its
+            formula and ratio, alerts and assumptions. Printable to PDF. The input is kept in this browser.
+          </p>
+        </section>
+      </div>
+    </main>
+
+    <footer>
+      <p>Reinforced soil wall · local verification tool · Eurocode 7.</p>
+    </footer>
+
+    <script type="module" src="../src/main.ts"></script>
+  </body>
+</html>

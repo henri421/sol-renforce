@@ -234,3 +234,13 @@ Audit T2 (seance de conception) : le test signale etait juste, la phrase fautive
 - Tâche arrêtée sur le test jugé faux : aucun commit, aucun push, aucun tag. Aucun fichier de `tests/` modifié.
 
 Audit T3 (seance de conception) : les deux blocages etaient des defauts de conception. 1) dessin.test exigeait longueurActive au pied, ou le noyau refuse h = 0 : le test prend desormais une longueur nulle a h < 0,01 (correction du test par la conception, contrat inchange). 2) note.ts affichait « m_α » brut dans les alertes : meme contournement « _alpha » que vue.ts. Resultats : form 21, page 13, vue 70, dessin 30, note 50, noyau 26, typage 0 erreur.
+
+## T4 interface
+
+Lancement DeepSeek arrete a 45 tours (max-turns) avant le compte rendu et le commit ; section ecrite par la seance de conception.
+
+**Fichiers modifies** : `app/en/index.html` (nouveau), `app/src/textes.ts` (EN complete, EXACTES et REGLES de `phrase`), `app/src/vue.ts` (2 lignes).
+
+**Points douteux** : `vue.ts` etait interdit ; l'executant y a remplace l'unite « ans » ecrite en dur par `e.uniteDureeVie` et les symboles `d_u`, `répartition` par `t_d`, `d_R` (le symbole francais restait dans la version anglaise). Changement juge fonde, garde.
+
+**Statut des tests** (relances par la conception) : anglais 23/23, form 21/21, page 13/13, vue 70/70, dessin 30/30, note 50/50, noyau 26/26 ; typage 0 erreur.
