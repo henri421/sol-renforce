@@ -226,6 +226,16 @@ const FR = {
     corrosion: (deltaE: string, Ar: string, pourcent: string) =>
       `Section après corrosion (EN 1997-3:2025, 9.3.4) : Δe = ${deltaE} mm par face, A_r = ${Ar} mm² par feuillard, soit ${pourcent} % de A_0.`,
   },
+  /** Coupe du mur (dessin.ts). */
+  dessin: {
+    aria: 'Coupe du mur en sol renforcé, lits d’armatures et cercle de glissement',
+    titreVue: (vue: string, F: string) => `${vue} : F_d = ${F}`,
+    massif: 'massif renforcé',
+    remblaiRetenu: 'remblai retenu',
+    fondation: 'fondation',
+    hauteur: (v: string) => `H = ${v} m`,
+    longueur: (v: string) => `L = ${v} m`,
+  },
 };
 
 export type Textes = typeof FR;
@@ -437,6 +447,16 @@ const EN: Textes = {
     colonnesLits: ['h (m)', 'z (m)', 'K', 'σ_v (kPa)', 'T (kN/m)', 'L_a (m)', 'L_e (m)', 'R_t (kN/m)', 'R_po (kN/m)', 'Ratio'],
     corrosion: (deltaE: string, Ar: string, pourcent: string) =>
       `Section after corrosion (EN 1997-3:2025, 9.3.4): Δe = ${deltaE} mm per face, A_r = ${Ar} mm² per strip, i.e. ${pourcent} % of A_0.`,
+  },
+  /** Section of the wall (dessin.ts). */
+  dessin: {
+    aria: 'Cross-section of the reinforced soil wall, reinforcement layers and sliding circle',
+    titreVue: (vue: string, F: string) => `${vue}: F_d = ${F}`,
+    massif: 'reinforced massif',
+    remblaiRetenu: 'retained fill',
+    fondation: 'foundation',
+    hauteur: (v: string) => `H = ${v} m`,
+    longueur: (v: string) => `L = ${v} m`,
   },
 };
 

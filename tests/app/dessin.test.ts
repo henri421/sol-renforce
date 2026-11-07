@@ -8,7 +8,7 @@
  *  - `line.parement` : le parement, de (0 ; 0) a (0 ; H) ;
  *  - `line.lit` : un par lit, de (0 ; h) a (L ; h) ;
  *  - `polyline.tractions` : la ligne des tractions maximales (option « tractions »), un sommet
- *    (longueurActive(armature, H, h, φ_r) ; h) pour h = 0, H/2, H et chaque lit, h croissant ;
+ *    (longueurActive(armature, H, h, φ_r) ; h) pour h = 0 (longueur nulle), H/2, H et chaque lit, h croissant ;
  *  - `path.cercle` : l'arc de glissement, commande `A r r ...` ; `circle.centre` : son centre ;
  *  - `line.force` : une par armature coupee qui porte un effort (T > 0), a la hauteur du lit ;
  *  - `.cote` : ce que retire l'option « cotes ».
@@ -123,7 +123,8 @@ describe('ligne des tractions maximales', () => {
       for (let k = 1; k < hs.length; k++) expect(hs[k]).toBeGreaterThan(hs[k - 1]);
       for (const h of [0, d.geometrie.H / 2, d.geometrie.H]) expect(hs.some((x) => Math.abs(x - h) < 0.01)).toBe(true);
       sm.forEach((q, k) => {
-        const La = longueurActive(d.armature, d.geometrie.H, hs[k], d.remblaiRenforce.phiDeg);
+        // Au pied (h = 0), la longueur active est nulle ; le noyau ne la calcule que pour h > 0.
+        const La = hs[k] < 0.01 ? 0 : longueurActive(d.armature, d.geometrie.H, hs[k], d.remblaiRenforce.phiDeg);
         expect(Math.abs(q.X - p.X(La))).toBeLessThan(1);
       });
     });

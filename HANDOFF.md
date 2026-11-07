@@ -198,3 +198,39 @@ Commit : `300c9c1`.
 - Non commité : tâche arrêtée sur un test jugé faux, selon la consigne. Aucun push, aucun tag.
 
 Audit T2 (seance de conception) : le test signale etait juste, la phrase fautive etait la mienne. note.hypotheses[0] reformulee (« armatures horizontales, toutes de longueur L. »). vue.test 70/70, form.test 21/21, page.test 13/13, typage 0 erreur. Le contournement _alpha des alertes reste a juger avec note.test et anglais.test.
+
+## T3 interface
+
+**Fichiers modifiés**
+- `app/src/dessin.ts` : `vuesDisponibles`, `vueGouvernante`, `coupe` ; une seule échelle en x et en y, repère du noyau inversé dans le SVG, terrain, massif, remblai retenu, fondation, parement, lits, tractions, arc et centre, forces, cotes, titre.
+- `app/src/style.css` : en fin de fichier, les règles de `export.ts` qui manquaient pour les classes du dessin (`.ligne-terrain`, `.fondation`, `.remblai-retenu`, `.massif`, `.parement`, `.lit`, `.tractions`, `.masse`, `.cercle`, `.centre`, `.rayon`, `.force`, `.fleche`, `svg text.cote`, `.texte-coupe`, `.texte-traction`, `.texte-refus`, `.titre-coupe`). `.cote` existait déjà, non dupliquée.
+- `app/src/textes.ts` : blocs `dessin` ajoutés à FR et à EN (aria, titre de vue, libellés des trois sols, cotes). `messages`, `clauses`, `verifications`, `note` intacts.
+- Aucun fichier de `tests/`, `src/`, `note.ts`, `export.ts`, `vue.ts`, `form.ts`, `main.ts`, `package.json` modifié.
+
+**Décisions**
+- Cadre : `x_g = -max(H, 1)`, `x_d = L + max(H, 1)` ; le viewBox contient le terrain, les extrémités de l'arc et le centre du cercle. Épaisseur dessinée de la fondation `max(0.5 ; 0.2 H)`.
+- Une seule échelle `s = min((640 - marges)/étendue_x ; 380/étendue_y)`, marges en pixels pour les cotes et le titre.
+- Terrain exigé à quatre sommets `(x_g ; D), (0 ; D), (0 ; H), (x_d ; H)` ; les surfaces (fondation, remblai retenu, massif) sont des `polygon` sans classe imposée.
+- Arc : extrémités aux bords extérieurs de la première et de la dernière tranche (`x ± b/2`, `ySol`), commande `A r r 0 grand 0` en pixels ; `grand` vaut 1 si l'angle parcouru dépasse π. Si le résultat n'a aucune tranche, l'arc est omis (le centre reste).
+- Tractions : hauteurs `[0, H/2, H, ...lits]`, triées, dédoublonnées à `1e-9`. `longueurActive` exige `h > 0` : le sommet au pied est dessiné à la longueur 0. Les autres viennent du noyau.
+- Forces : une `line.force` par renfort de `T > 0`, de `xCoupe` à `L`, à la hauteur `y`.
+- Nombres : `a()` remplace tout non-fini par `0` ; `nb()` remplace tout non-fini par `—` ; les textes passent par `notationSvg` et `ponctuer`. Libellés en minuscules (« massif renforcé »), comme l'attend le test.
+- Cotes : H à gauche (entre `x_g` et 0), L sous le massif ; l'option `cotes: false` retire toute la classe `cote`.
+- Titre : `${vue} : F_d = ${nombreAffiche(F, 3)}`, avec `ponctuer` pour la virgule française.
+
+**Points douteux**
+- BLOQUANT (test jugé faux) : `tests/app/dessin.test.ts`, « acier : sommets sur la longueur active du noyau ». Le test dérive `hs[k]` des coordonnées SVG arrondies à deux décimales (`(t[1].Y - q.Y)/ex + D`) puis appelle `longueurActive(armature, H, hs[k], φ_r)` sur chaque sommet. Pour le sommet exigé à h = 0, `hs[0]` vaut −0,000252 m pour l'acier (le noyau lève « La hauteur du lit h doit être un nombre strictement positif (m) ») et +0,000123 m pour le géosynthétique (qui passe). Le signe n'est qu'un effet d'arrondi : avec des coordonnées exactes `hs[0]` serait 0 et le noyau lèverait dans les deux cas. Le test exige donc un sommet strictement au-dessus de 0 tout en le disant à h = 0 (tolérance 0,01 m) ; une implémentation qui respecte « h = 0 » ne peut pas passer. Je n'ai ni modifié le test ni déplacé le sommet (un dessin à 5 mm passerait, mais contredit le brief). À trancher en conception : soit le test saute les sommets à h ≈ 0 dans la boucle `longueurActive`, soit le brief admet un sommet à `0 < h < 0,01`.
+- `note.test` : 1 échec, antérieur à T3 et déjà signalé en T2 : le texte visible de la note contient `m_α` (constat « _ affiche »). Vient du contournement `_alpha` de `vue.ts` pour les alertes du noyau ; `vue.ts` est interdit à l'exécutant. À corriger en conception.
+- `vueGouvernante` départage par le premier taux maximal (ordre du noyau), non testé sur une égalité.
+- L'arc n'est pas dessiné si `resultat.tranches` est vide ; le viewBox garde le centre.
+- Les libellés EN ajoutés ne sont pas relus (T4).
+
+**Statut des tests**
+- `lancer.mjs . dessin.test` : 29 réussis, 1 échec (acier, ci-dessus).
+- `lancer.mjs . note.test` : 49 réussis, 1 échec (`m_α`, ci-dessus).
+- `lancer.mjs . page.test` : 13 réussis, 0 échec.
+- `lancer.mjs . vue.test` : 70 réussis, 0 échec.
+- `typecheck.mjs .` : 0 erreur (TypeScript 6.0.3).
+- Tâche arrêtée sur le test jugé faux : aucun commit, aucun push, aucun tag. Aucun fichier de `tests/` modifié.
+
+Audit T3 (seance de conception) : les deux blocages etaient des defauts de conception. 1) dessin.test exigeait longueurActive au pied, ou le noyau refuse h = 0 : le test prend desormais une longueur nulle a h < 0,01 (correction du test par la conception, contrat inchange). 2) note.ts affichait « m_α » brut dans les alertes : meme contournement « _alpha » que vue.ts. Resultats : form 21, page 13, vue 70, dessin 30, note 50, noyau 26, typage 0 erreur.

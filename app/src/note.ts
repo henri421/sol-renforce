@@ -130,6 +130,7 @@ export function noteDuCalcul(
       calculs: [...tableauxLits(r), ...detail.map((b): ElementNote => ({ type: 'bloc', bloc: b }))],
     },
     verifications: verificationsDe(r),
-    avertissements: r.alertes.map((a) => phrase(a)),
+    // Indice grec du noyau (« m_α ») : la notation commune ne lit que des indices ASCII, d'ou « _alpha ».
+    avertissements: r.alertes.map((a) => phrase(a).replace(/_α/g, '_alpha')),
   };
 }
