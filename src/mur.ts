@@ -13,8 +13,21 @@
  *
  * Squelette (T0) : types imposes par PLAN.md, fonctions a ecrire.
  */
-import type { Approche, Approche2e, Cercle, ClasseConsequences, ResultatCercle, Risque, Combinaison } from 'sol-ec7';
+import type {
+  Approche,
+  Approche2e,
+  Cercle,
+  ClasseConsequences,
+  CombinaisonStabilite,
+  CoucheTalus,
+  DonneesBishop,
+  Renfort,
+  ResultatCercle,
+  Risque,
+  Combinaison,
+} from 'sol-ec7';
 import {
+  analyserCercle,
   combinaisons1g,
   combinaisons2g,
   combinaisonsStabilite1g,
@@ -26,6 +39,7 @@ import {
   portanceNonDrainee1g,
   portanceNonDrainee2g,
   profilAnb2022,
+  rechercherCercleCritique,
 } from 'sol-ec7';
 
 export interface Geometrie {
@@ -449,6 +463,16 @@ const SRC_R_PO_RES = 'EN 1997-3:2025, tableau 9.4, valeur recommandée, sans k_R
 const SRC_R_PO_MAT = 'EN 1997-3:2025, tableau 9.4, approche par les matériaux, sans coefficient';
 
 /**
+ * Diviseur de rupture de 2e generation, approche par les materiaux (tableau 9.4) : acier
+ * gamma_M0 = 1,00 ; geosynthetique gamma_Rd,gs x gamma_M,gs = gamma_Rd,gs x 1,25.
+ */
+function rupture2g(a: Armature): ValeurNommee {
+  return a.type === 'acier'
+    ? { nom: 'γRt', valeur: GAMMA_M0, source: SRC_M0 }
+    : { nom: 'γRt', valeur: a.gammaRd * GAMMA_M_GS, source: `${SRC_M_GS} × γRd,gs saisi` };
+}
+
+/**
  * Jeux des combinaisons internes : 1re generation, celles de combinaisons1g (gamma_Rt et
  * gamma_R,po saisis) ; 2e generation, VC3 + M2 (approche par les materiaux) ou VC1 (approche
  * par les resistances, gamma_R,po = 1,25 sans k_R, clause 9.6 et tableau 9.4).
@@ -479,9 +503,7 @@ function jeuxInternes(d: DonneesMur): JeuInterne[] {
   }
 
   const p2 = profil2g();
-  const rupture = a.type === 'acier'
-    ? { valeur: GAMMA_M0, source: SRC_M0 }
-    : { valeur: a.type === 'geosynthetique' ? a.gammaRd * GAMMA_M_GS : 1, source: `${SRC_M_GS} × γRd,gs saisi` };
+  const rupture = rupture2g(a);
 
   if (d.facteurInterne === 'materiaux') {
     const cb = combinaisonsStabilite2g(d.cc, p2)[0];
@@ -520,6 +542,36 @@ function jeuxInternes(d: DonneesMur): JeuInterne[] {
   }];
 }
 
+/** Diviseurs d'un jeu de resistances : sigma_v,res (gamma_G,stb), gamma_phi,po, gamma_Rt, gamma_R,po. */
+interface JeuResistances {
+  gGstb: number;
+  gPhiPo: number;
+  gRt: number;
+  gRpo: number;
+}
+
+/**
+ * Resistances de calcul d'un lit a la profondeur z, pour une longueur d'ancrage Le (kN/m) :
+ * Rt (9.5.2 et 9.6) et Rpo (9.8 a 9.10 pour l'acier, 9.19 a 9.21 pour le geosynthetique).
+ * Rt ne depend pas de Le. Rpo est lineaire en Le : Rpo(Le = 1) est le rpo par metre ancre
+ * de la stabilite generale (T5), sans duplication de la formule.
+ */
+function resistancesLit(d: DonneesMur, j: JeuResistances, z: number, Le: number): { Rt: number; Rpo: number } {
+  const a = d.armature;
+  const phiR = d.remblaiRenforce.phiDeg;
+  const sigmaRes = j.gGstb * (d.remblaiRenforce.gamma * z + d.qG);
+  if (a.type === 'acier') {
+    const section = sectionReduite(a);
+    const Rt = (a.nbParMetre * section.Ar * a.fy) / 1000 / j.gRt;
+    const mu = a.muPo0 + ((a.muPoZ0 - a.muPo0) * Math.min(z, a.z0)) / a.z0;
+    const Rpo = (a.nbParMetre * 2 * (a.largeur / 1000) * Le * (mu / j.gPhiPo) * sigmaRes) / j.gRpo;
+    return { Rt, Rpo };
+  }
+  const Rt = (a.etaGs * a.Tk) / j.gRt;
+  const Rpo = (2 * a.Rc * Le * a.kpo * (Math.tan(phiR * RAD) / j.gPhiPo) * sigmaRes) / j.gRpo;
+  return { Rt, Rpo };
+}
+
 /**
  * Calcul d'un lit (EN 1997-3:2025, 9.5 et 9.6) : K, sigma_v, T, longueurs, Rt, Rpo et taux.
  * Le taux du lit est le plus defavorable de la rupture et de l'arrachement ; sans ancrage
@@ -533,7 +585,6 @@ function calculerInterne(d: DonneesMur, j: JeuInterne): ResultatInterne {
   // Angle de calcul phi_d = atan(tan phi_r / gamma_phi) et Ka = tan²(45° − phi_d/2).
   const phiD = Math.atan(Math.tan(phiR * RAD) / j.gPhi);
   const Ka = Math.tan(Math.PI / 4 - phiD / 2) ** 2;
-  const section = a.type === 'acier' ? sectionReduite(a) : null;
 
   const lits = positionsLits(g).map((lit): ResultatLit => {
     const z = lit.z;
@@ -546,20 +597,7 @@ function calculerInterne(d: DonneesMur, j: JeuInterne): ResultatInterne {
     const T = K * sigmaV * lit.Sv;
     const La = longueurActive(a, g.H, lit.h, phiR);
     const Le = Math.max(0, g.L - La);
-    const sigmaRes = j.gGstb * (gamma * z + d.qG);
-
-    let Rt: number;
-    let Rpo: number;
-    if (a.type === 'acier' && section !== null) {
-      Rt = (a.nbParMetre * section.Ar * a.fy) / 1000 / j.gRt;
-      const mu = a.muPo0 + ((a.muPoZ0 - a.muPo0) * Math.min(z, a.z0)) / a.z0;
-      Rpo = (a.nbParMetre * 2 * (a.largeur / 1000) * Le * (mu / j.gPhiPo) * sigmaRes) / j.gRpo;
-    } else if (a.type === 'geosynthetique') {
-      Rt = (a.etaGs * a.Tk) / j.gRt;
-      Rpo = (2 * a.Rc * Le * a.kpo * (Math.tan(phiR * RAD) / j.gPhiPo) * sigmaRes) / j.gRpo;
-    } else {
-      throw new Error('Type d armature inconnu.');
-    }
+    const { Rt, Rpo } = resistancesLit(d, j, z, Le);
 
     const tauxRupture = T / Rt;
     const tauxArrachement = Rpo > 0 ? T / Rpo : Number.POSITIVE_INFINITY;
@@ -755,6 +793,120 @@ function excentricite2g(d: DonneesMur): NonNullable<ResultatMur['excentricite']>
   return { eG, tauxG, eGQ, tauxGQ, taux, conforme: taux <= 1 };
 }
 
+/** Combinaisons de stabilite generale : 1re generation, combinaisonsStabilite1g ; 2e, VC3 + M2. */
+function combinaisonsStabilite(d: DonneesMur): CombinaisonStabilite[] {
+  if (d.generation === '1re') return combinaisonsStabilite1g(d.approche, profil1gDe(d));
+  return combinaisonsStabilite2g(d.cc, profil2g());
+}
+
+/**
+ * Diviseurs de resistance d'une combinaison de stabilite (PLAN.md, stabilite generale) :
+ * gamma_phi,po = sol.gPhi de la combinaison et sigma_v,res avec gamma_G,stb de la combinaison.
+ * 1re generation : gamma_Rt et gamma_R,po saisis. 2e generation : approche par les materiaux,
+ * quel que soit facteurInterne (clause 4).
+ */
+function jeuResistancesStabilite(d: DonneesMur, cb: CombinaisonStabilite): JeuResistances {
+  const gGstb = cb.actions.gG_stb.valeur;
+  const gPhiPo = cb.sol.gPhi.valeur;
+  if (d.generation === '1re') {
+    const c = d.coefficientsInternes1g;
+    if (c === null) {
+      throw new Error("Les coefficients internes de 1re génération (γRt, γRpo) doivent être saisis : aucune valeur par défaut dans la norme.");
+    }
+    return { gGstb, gPhiPo, gRt: c.gRt, gRpo: c.gRpo };
+  }
+  return { gGstb, gPhiPo, gRt: rupture2g(d.armature).valeur, gRpo: 1 };
+}
+
+/**
+ * Donnees de Bishop d'une combinaison (PLAN.md, stabilite generale et mixte) : profil avec
+ * parement incline de 1 cm sur H (x strictement croissants), couches retenu et fondation,
+ * zone du massif renforce, surcharges sur [0 ; L + 3H], un renfort par lit de x = 0 a L.
+ * Tranches : nbTranches = 200 (50 tranches donnent un ecart de 0,6 % sur F).
+ */
+function donneesBishop(d: DonneesMur, cb: CombinaisonStabilite): DonneesBishop {
+  const { H, L, D } = d.geometrie;
+  const rr = d.remblaiRenforce;
+  const rb = d.remblaiRetenu;
+  const f = d.fondation;
+  // Couche de fondation : drainee (phi', c') ou non drainee (cu). Pas d'eau (hors perimetre).
+  const fondation: CoucheTalus =
+    f.drainage === 'draine'
+      ? { nom: 'fondation', base: -3 * H, gamma: f.gamma, gammaSat: f.gamma, drainage: 'draine', phi: (f.phiDeg ?? 0) * RAD, c: f.c ?? 0 }
+      : { nom: 'fondation', base: -3 * H, gamma: f.gamma, gammaSat: f.gamma, drainage: 'non_draine', cu: f.cu };
+  const xFin = L + 3 * H;
+  const jr = jeuResistancesStabilite(d, cb);
+  const renforts: Renfort[] = positionsLits(d.geometrie).map((lit) => ({
+    y: lit.h,
+    x0: 0,
+    x1: L,
+    Rt: resistancesLit(d, jr, lit.z, 0).Rt,
+    // rpo : arrachement par metre ancre, sans Le (Rpo lineaire en Le).
+    rpo: resistancesLit(d, jr, lit.z, 1).Rpo,
+  }));
+  return {
+    // Le parement est incline de 1 cm sur H : les x doivent croitre strictement.
+    profil: [
+      { x: -2 * H, y: D },
+      { x: 0, y: D },
+      { x: 0.01, y: H },
+      { x: xFin, y: H },
+    ],
+    couches: [
+      { nom: 'remblai retenu', base: 0, gamma: rb.gamma, gammaSat: rb.gamma, drainage: 'draine', phi: rb.phiDeg * RAD, c: 0 },
+      fondation,
+    ],
+    // Zone du massif : le terrain devant le parement, entre 0 et D, est compte en remblai retenu.
+    zones: [
+      {
+        xMin: 0,
+        xMax: L,
+        yMin: 0,
+        couche: { nom: 'remblai renforcé', base: 0, gamma: rr.gamma, gammaSat: rr.gamma, drainage: 'draine', phi: rr.phiDeg * RAD, c: 0 },
+      },
+    ],
+    piezo: null,
+    gammaW: 9.81,
+    bandes: [
+      { x0: 0, x1: xFin, q: d.qG, nature: 'G' },
+      { x0: 0, x1: xFin, q: d.qQ, nature: 'Q' },
+    ],
+    combinaison: cb,
+    nbTranches: 200,
+    renforts,
+  };
+}
+
+/**
+ * Stabilite generale et mixte d'une combinaison : cercle impose (analyse, refus si invalide)
+ * ou recherche du cercle critique (refus si aucun cercle valide). taux = gamma_R;e / F.
+ */
+function stabiliteGenerale(d: DonneesMur, cb: CombinaisonStabilite): ResultatStabilite {
+  const donnees = donneesBishop(d, cb);
+  if (d.cercle !== null) {
+    const c = d.cercle;
+    const r = analyserCercle(donnees, c);
+    if (!r.valide) {
+      throw new Error(
+        `Le cercle imposé (xc = ${fr(c.xc)} m, yc = ${fr(c.yc)} m, R = ${fr(c.R)} m) est refusé pour la combinaison ${cb.nom} : ${r.motif}.`,
+      );
+    }
+    return { nom: cb.nom, cercle: c, F: r.F, taux: r.taux, conforme: r.taux <= 1, resultat: r };
+  }
+  const trouve = rechercherCercleCritique(donnees);
+  if (trouve === null) {
+    throw new Error(`Aucun cercle valide pour la combinaison ${cb.nom} : la recherche du cercle critique n'aboutit pas.`);
+  }
+  return {
+    nom: cb.nom,
+    cercle: trouve.cercle,
+    F: trouve.resultat.F,
+    taux: trouve.resultat.taux,
+    conforme: trouve.resultat.taux <= 1,
+    resultat: trouve.resultat,
+  };
+}
+
 export function verifierMur(d: DonneesMur): ResultatMur {
   verifierSaisie(d);
   let section: ResultatMur['section'] = null;
@@ -818,7 +970,11 @@ export function verifierMur(d: DonneesMur): ResultatMur {
     alertes.add('L < 0,7·H : en dessous de la longueur minimale usuelle (FHWA)');
   }
 
-  // Gouvernant : stabilite generale (stabilite) absente tant que T5 n'est pas fait.
+  const stabilite = combinaisonsStabilite(d).map((cb) => stabiliteGenerale(d, cb));
+  for (const s of stabilite) {
+    for (const av of s.resultat.avertissements) alertes.add(av);
+  }
+
   const candidats: { verification: string; combinaison: string; taux: number }[] = [];
   for (const i of interne) candidats.push({ verification: 'interne', combinaison: i.nom, taux: i.tauxMax });
   for (const e of externe) {
@@ -829,6 +985,7 @@ export function verifierMur(d: DonneesMur): ResultatMur {
   if (excentricite !== null) {
     candidats.push({ verification: 'excentricite', combinaison: 'caractéristique', taux: excentricite.taux });
   }
+  for (const s of stabilite) candidats.push({ verification: 'stabilite', combinaison: s.nom, taux: s.taux });
   const gouvernant = candidats.reduce((m, c) => (c.taux > m.taux ? c : m));
 
   return {
@@ -839,7 +996,7 @@ export function verifierMur(d: DonneesMur): ResultatMur {
     externe,
     renversement,
     excentricite,
-    stabilite: [],
+    stabilite,
     gouvernant,
     alertes: [...alertes],
   };

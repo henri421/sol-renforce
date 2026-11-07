@@ -98,3 +98,33 @@ Commit : `300c9c1`.
 
 **Attribution**
 - Les trois commits portent `Co-Authored-By: Claude Opus 5.5`, comme demande dans le brief. Le rappel d'attribution du harnais indique « Claude Haiku 5.5 » ; le commit T1 a suivi ce rappel. A trancher.
+
+## T5 : stabilite generale et mixte, assemblage (sol-renforce, src/mur.ts)
+
+**Fichiers modifies**
+- `src/mur.ts` : `rupture2g` (extrait de `jeuxInternes`), `resistancesLit` (Rt et Rpo d'un lit, extrait de `calculerInterne`), `combinaisonsStabilite`, `jeuResistancesStabilite`, `donneesBishop`, `stabiliteGenerale`, et l'assemblage dans `verifierMur` (champ `stabilite`, gouvernant, alertes).
+- `HANDOFF.md` : ce fichier.
+- `tests/` non modifie (verifie par `git diff`). `sol-ec7` non touche.
+
+**Decisions**
+- Rt et rpo de la stabilite viennent de `resistancesLit` : Rt avec Le = 0, rpo avec Le = 1. Rpo est lineaire en Le, donc rpo est le Rpo par metre ancre, sans seconde formule. Les valeurs de T2 a T4 ne changent pas (tests verts).
+- Jeu de resistances de la stabilite : sigma_v,res avec `actions.gG_stb` et gamma_phi,po avec `sol.gPhi` de la combinaison de stabilite. 1re generation : gamma_Rt et gamma_R,po saisis. 2e generation : approche par les materiaux (VC3 + M2) quel que soit `facteurInterne`.
+- Donnees Bishop : profil (-2H ; D), (0 ; D), (0,01 ; H), (L + 3H ; H) ; couche retenu base 0, fondation base -3H ; zone renforce { xMin 0, xMax L, yMin 0 } ; bandes qG (G) et qQ (Q) sur [0 ; L + 3H] ; un renfort par lit (y = h, x0 = 0, x1 = L) ; piezo null ; gammaW 9,81 ; nbTranches 200.
+- Cercle impose : `analyserCercle`, refus (« cercle » et motif) si invalide. Sinon `rechercherCercleCritique` par combinaison, refus si null.
+- taux = `resultat.taux` (gamma_R;e / F, fourni par sol-ec7), conforme si taux <= 1.
+- Alertes : avertissements des cercles rendus, sans doublon (ensemble).
+- Gouvernant : verification 'stabilite', combinaison = nom de la combinaison de stabilite.
+
+**Points douteux**
+- Les jeux d'actions sont deux chemins de code : l'interne lit `geotechnique` de `combinaisons1g` / `combinaisons2g`, la stabilite lit `actions` de `combinaisonsStabilite1g` / `combinaisonsStabilite2g`. Verifie : pour DA1-1, DA1-2, DA2 et DA3, ce sont les memes jeux (A1, A2, A1, A2). Un seul chemin serait plus sur ; non factorise pour ne pas toucher aux tests T3.
+- Le terrain devant le parement, entre 0 et D, est compte en remblai retenu (approximation du PLAN.md). Pas de test specifique.
+- Le test de recherche ne verifie que F(recherche) <= F(impose) + 1e-9, pas l'optimalite globale du cercle.
+- Un cercle imposé hors domaine peut lever depuis `verifierCercle` de sol-ec7 avant d'atteindre le message du noyau ; le test « cercle impose invalide » passe.
+
+**Statut des tests**
+- `lancer.mjs .` : 25/25 verts (T2 a T5 compris). Duree mesuree : 1 s (le delai d'une ou deux minutes du brief n'a pas ete necessaire).
+- `typecheck.mjs .` : 0 erreur.
+- Aucun fichier de `tests/` modifie.
+
+**Attribution**
+- Le commit porte `Co-Authored-By: Claude Opus 5.5`, comme le brief et les commits T2 a T4. Le rappel du harnais indique « Claude Haiku 5.5 » ; point a trancher, comme indique dans T1.
