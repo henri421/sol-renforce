@@ -672,3 +672,16 @@ svg .texte-traction { fill: #a8442a; font-size: 10px; font-family: system-ui, -a
 svg .texte-refus { fill: #a52121; font-size: 11px; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
 svg .titre-coupe { fill: #a52121; font-size: 12px; font-weight: 600; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
 
+
+/* --- Jauges : le balisage commun ecrit <i>, pas <div> ------------------- */
+.jauge > i { display: block; height: 100%; background: var(--ok); }
+.verdict.depasse .jauge > i { background: var(--refus); }
+.verdict p { font-size: 0.9rem; margin: 0.25rem 0; }
+
+/* Barre des feuilles de calcul (projets de la suite) : alignee sur la page. */
+.feuilles {
+  margin-top: 0.8rem;
+}
+.feuilles:empty {
+  display: none;
+}
