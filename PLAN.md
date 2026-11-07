@@ -143,7 +143,8 @@ Sources à porter dans `coefficients` :
     (clause 4).
 - **Cercle :**
   - cercle imposé : on l'analyse, et un cercle invalide est refusé par un message contenant « cercle » et le motif ;
-  - sinon `rechercherCercleCritique` par combinaison, et si la recherche n'aboutit pas, refus.
+  - sinon `rechercherCercleCritique` par combinaison, avec `xGaucheMax: 1e-4` (ajout de l'audit : sans lui, la
+    recherche trouve une lamelle de 3 cm derrière le parement, F = 0,17) ; si la recherche n'aboutit pas, refus.
 - **Tranches** : `nbTranches` = 200 pour l'analyse comme pour la recherche. À 50 tranches, la colonne du parement
   presque vertical donne un écart de 0,6 % sur F.
 - **Taux** = γR;e/F.

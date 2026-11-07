@@ -893,7 +893,9 @@ function stabiliteGenerale(d: DonneesMur, cb: CombinaisonStabilite): ResultatSta
     }
     return { nom: cb.nom, cercle: c, F: r.F, taux: r.taux, conforme: r.taux <= 1, resultat: r };
   }
-  const trouve = rechercherCercleCritique(donnees);
+  // Sortie au pied ou devant : le parement retient le massif (au plus 1e-4 m de fruit, soit
+  // environ H/100 au-dessus du pied).
+  const trouve = rechercherCercleCritique(donnees, { xGaucheMax: 1e-4 });
   if (trouve === null) {
     throw new Error(`Aucun cercle valide pour la combinaison ${cb.nom} : la recherche du cercle critique n'aboutit pas.`);
   }
