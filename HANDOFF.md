@@ -128,3 +128,13 @@ Commit : `300c9c1`.
 
 **Attribution**
 - Le commit porte `Co-Authored-By: Claude Opus 5.5`, comme le brief et les commits T2 a T4. Le rappel du harnais indique « Claude Haiku 5.5 » ; point a trancher, comme indique dans T1.
+
+## Audit (séance Claude, 2026-11-07)
+
+- Tests relancés : `sol-ec7` 66/66, `sol-renforce` 25/25 ; typage 0 erreur dans les deux dépôts. Aucun fichier de `tests/` modifié (git diff depuis T0).
+- Relu : forces des armatures dans Bishop (sens, coupe arrière, moment ajouté au numérateur, refus), poids de colonne par zones, coefficients internes et sources, externe, basculement VC2(a)/(b), stabilité générale.
+- Point 1 de T1 (sens) : sin α = (x − xc)/R, donc sens = +1 est bien un glissement vers les x décroissants, vers le parement. Conforme au plan.
+- Point 2 de T1 (zone testée au milieu de la tranche) : accepté ; à 200 tranches l'effet est négligeable.
+- Hypothèse de T4 (φb représentatif en 2e génération pour le basculement et l'excentricité) : conforme au plan et au mur en L.
+- Corrigé : message « la résultante sort de la semelle » → « de la base du massif ».
+- Cas restés sans test : DA3, approches (c) et (d), B' ≤ 0, ANB. À couvrir par les tests de l'interface ou un lot suivant.

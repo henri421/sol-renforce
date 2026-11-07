@@ -745,7 +745,7 @@ function calculerExterne(d: DonneesMur, c: ComboExterne): ResultatExterne {
   const detailP: Record<string, number> = { e, Bp, Vd: Vp, Hd };
   let tauxP: number;
   if (Bp <= 0) {
-    // La resultante sort de la semelle : la portance n'est pas calculable, taux infini.
+    // La resultante sort de la base du massif : la portance n'est pas calculable, taux infini.
     tauxP = Number.POSITIVE_INFINITY;
     detailP.qEd = Number.POSITIVE_INFINITY;
   } else {
