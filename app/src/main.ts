@@ -6,6 +6,7 @@
  * que des champs de la saisie : les basculer ne touche a aucune valeur saisie.
  */
 
+import { brancherFeuilles, type BarreFeuilles, type Json } from 'aedificium-ui';
 import {
   blocsEnTexte,
   definirLangue,
@@ -82,6 +83,9 @@ function lireCartouche(): { projet: string; element: string } {
 }
 
 let saisie: Saisie = charger() ?? saisieParDefaut();
+
+/** Feuilles de calcul d'un projet de la suite. */
+let barre: BarreFeuilles | null = null;
 
 interface Dernier {
   calcul: Calcul;
@@ -211,7 +215,8 @@ function viderResultats(): void {
 }
 
 function recalculer(): void {
-  memoriser();
+  if (barre?.dansUnProjet()) barre.signaler();
+  else memoriser();
   ajusterAffichage();
   const lecture = lireSaisie(saisie);
   if (!lecture.ok) {
@@ -357,6 +362,18 @@ for (const champ of [champProjet, champElement]) {
     }
   });
 }
+
+barre = brancherFeuilles({
+  app: 'sol-renforce',
+  nomApp: document.querySelector('header h1')?.textContent ?? 'sol-renforce',
+  conteneur: document.querySelector('[data-role="feuilles"]') as HTMLElement,
+  lire: () => JSON.parse(serialiser(saisie)) as Json,
+  charger: (d) => {
+    saisie = d === null ? saisieParDefaut() : relire(JSON.stringify(d));
+    ecrireSaisie();
+    recalculer();
+  },
+});
 
 ecrireSaisie();
 recalculer();
