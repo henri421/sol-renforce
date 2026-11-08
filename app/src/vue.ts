@@ -360,7 +360,7 @@ export function verdictsHtml(r: Resultat): string {
         titreHtml: texte(v.portance),
         clause: cl.portance,
         taux: portance.portance.taux,
-        detail: `${vue.combinaison} ${phrase(portance.nom)}`,
+        detail: `${vue.combinaison} ${phrase(portance.nom)} ; q_Ed = ${aff(portance.portance.detail.qEd, 1)} kPa, q_Rd = ${aff(portance.portance.detail.qRd, 1)} kPa ; B′ = ${aff(portance.portance.detail.Bp, 2)} m, e = ${aff(portance.portance.detail.e, 2)} m`,
         gouverne: gouvernant(r, 'portance', portance.nom),
       }),
     );
@@ -373,7 +373,7 @@ export function verdictsHtml(r: Resultat): string {
         titreHtml: texte(v.glissement),
         clause: cl.glissement,
         taux: glissement.glissement.taux,
-        detail: `${vue.combinaison} ${phrase(glissement.nom)}`,
+        detail: `${vue.combinaison} ${phrase(glissement.nom)} ; H_d = ${aff(glissement.glissement.detail.Hd, 1)} kN/m, R_d = ${aff(glissement.glissement.detail.Rd, 1)} kN/m`,
         gouverne: gouvernant(r, 'glissement', glissement.nom),
       }),
     );
