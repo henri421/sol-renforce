@@ -15,6 +15,7 @@ import type { Calcul, Resultat } from './form';
 import { coupe, vueGouvernante } from './dessin';
 import { phrase, ponctuer, textes } from './textes';
 import { blocsResultat, entreesParSection } from './vue';
+import { VERSION_OUTIL } from './version';
 
 /** Normes affichees dans le cartouche (non traduites). */
 const NORME_1RE = 'EN 1997-1:2004';
@@ -109,6 +110,7 @@ export function noteDuCalcul(
 
   return {
     cartouche: {
+      version: VERSION_OUTIL,
       projet: cartouche.projet,
       element: cartouche.element.trim() === '' ? n.element : cartouche.element,
       date: cartouche.date,
