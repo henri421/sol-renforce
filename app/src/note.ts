@@ -10,7 +10,7 @@
  * Ecrit en T0 par la seance de conception ; l'executant ne le modifie pas.
  */
 
-import { type ElementNote, type LigneResultat, type NoteDeCalcul, type VerificationNote, nombreAffiche, tauxAffiche } from 'aedificium-ui';
+import { avertissement2eGeneration, type ElementNote, type LigneResultat, type NoteDeCalcul, type VerificationNote, nombreAffiche, tauxAffiche } from 'aedificium-ui';
 import type { Calcul, Resultat } from './form';
 import { coupe, vueGouvernante } from './dessin';
 import { phrase, ponctuer, textes } from './textes';
@@ -133,6 +133,6 @@ export function noteDuCalcul(
     },
     verifications: verificationsDe(r),
     // Indice grec du noyau (« m_α ») : la notation commune ne lit que des indices ASCII, d'ou « _alpha ».
-    avertissements: r.alertes.map((a) => phrase(a).replace(/_α/g, '_alpha')),
+    avertissements: [...(r.generation === '2e' ? [avertissement2eGeneration()] : []), ...r.alertes.map((a) => phrase(a).replace(/_α/g, '_alpha'))],
   };
 }

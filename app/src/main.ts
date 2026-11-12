@@ -18,6 +18,7 @@ import {
   resultatsEnCsv,
   svgAutonome,
   telecharger,
+  avertissement2eGeneration,
 } from 'aedificium-ui';
 import { defautsFhwa, lireSaisie, relire, saisieParDefaut, serialiser, verifier, type Calcul, type Resultat, type Saisie } from './form';
 import { coupe, vueGouvernante, vuesDisponibles } from './dessin';
@@ -123,6 +124,11 @@ function montrerErreur(message: string | null): void {
 function ajusterAffichage(): void {
   for (const b of boutons('[data-generation]')) {
     b.setAttribute('aria-pressed', String(b.dataset.generation === saisie.generation));
+  }
+  const bandeau = document.querySelector<HTMLElement>('[data-role="bandeau-2e-gen"]');
+  if (bandeau !== null) {
+    bandeau.hidden = saisie.generation !== '2e';
+    bandeau.textContent = avertissement2eGeneration();
   }
   for (const b of boutons('[data-armature]')) {
     b.setAttribute('aria-pressed', String(b.dataset.armature === saisie.armature));

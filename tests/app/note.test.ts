@@ -148,7 +148,8 @@ describe('conclusions', () => {
   it('alertes du noyau reprises', () => {
     expect((preparer(court()).note.avertissements ?? []).join(' ')).toContain('0,7·H');
     expect((preparer(mou()).note.avertissements ?? []).join(' ')).toContain('borné');
-    expect(preparer(impose()).note.avertissements ?? []).toEqual([]);
+    // Seul l'avertissement commun de la 2e generation (audit R5) quand le noyau n'alerte pas.
+    expect((preparer(impose()).note.avertissements ?? []).filter((a) => !a.startsWith('2e génération'))).toEqual([]);
   });
 });
 
