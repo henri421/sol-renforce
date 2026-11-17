@@ -6,6 +6,7 @@
  * actif ; seuls ceux du choix retenu sont lus.
  */
 
+import { profilLu1g } from './annexe';
 import { lireNombre, nombreAffiche } from 'aedificium-ui';
 import type { Approche, Approche2e, ClasseConsequences, Risque } from 'sol-ec7';
 import { defautsGraviteCoherente, verifierMur, type DonneesMur, type ResultatMur } from '../../src/mur';
@@ -17,7 +18,7 @@ export type Generation = '1re' | '2e';
 export interface Saisie {
   generation: Generation;
   /** 1re generation. */
-  profilNormatif: 'recommande' | 'anb2022';
+  profilNormatif: 'recommande' | 'anb2022' | 'lu';
   risque: Risque;
   approche1: Approche;
   /** Diviseurs internes de 1re generation : vides par defaut, a saisir. */
@@ -237,6 +238,7 @@ export function lireSaisie(s: Saisie): Lecture {
     const donnees: DonneesMur = {
       generation: s.generation,
       profilNormatif: s.profilNormatif,
+      ...(s.profilNormatif === 'lu' ? { profil1g: profilLu1g() } : {}),
       risque: s.risque,
       approche,
       coefficientsInternes1g,
@@ -309,7 +311,7 @@ export function relire(contenu: string): Saisie {
   const d = saisieParDefaut();
   return {
     generation: choixOu(brut.generation, ['1re', '2e'] as const, d.generation),
-    profilNormatif: choixOu(brut.profilNormatif, ['recommande', 'anb2022'] as const, d.profilNormatif),
+    profilNormatif: choixOu(brut.profilNormatif, ['recommande', 'anb2022', 'lu'] as const, d.profilNormatif),
     risque: choixOu(brut.risque, ['faible', 'normal', 'eleve'] as const, d.risque),
     approche1: choixOu(brut.approche1, ['DA1', 'DA2', 'DA3'] as const, d.approche1),
     gRt: texteOu(brut.gRt, d.gRt),

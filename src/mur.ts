@@ -40,6 +40,7 @@ import {
   portanceNonDrainee2g,
   profilAnb2022,
   rechercherCercleCritique,
+  type Profil1g,
 } from 'sol-ec7';
 
 export interface Geometrie {
@@ -119,7 +120,9 @@ export interface CoefficientsInternes1g {
 export interface DonneesMur {
   generation: '1re' | '2e';
   /** 1re generation. */
-  profilNormatif: 'recommande' | 'anb2022';
+  profilNormatif: 'recommande' | 'anb2022' | 'lu';
+  /** Profil 1re generation fourni par l'app (annexe nationale, lot E) ; prime sur `profilNormatif`. */
+  profil1g?: Profil1g;
   risque: Risque;
   approche: Approche;
   coefficientsInternes1g: CoefficientsInternes1g | null;
@@ -484,7 +487,7 @@ function jeuxInternes(d: DonneesMur): JeuInterne[] {
     if (c === null) {
       throw new Error("Les coefficients internes de 1re génération (γRt, γRpo) doivent être saisis : aucune valeur par défaut dans la norme.");
     }
-    const p = d.profilNormatif === 'anb2022' ? profilAnb2022(d.risque) : profil1g();
+    const p = profil1gDe(d);
     return combinaisons1g(d.approche, p).map((cb) => ({
       nom: cb.nom,
       gGdst: cb.geotechnique.gG_dst.valeur,
@@ -631,12 +634,12 @@ function calculerInterne(d: DonneesMur, j: JeuInterne): ResultatInterne {
 /** Nom du profil de coefficients retenu (1re generation : recommande ou ANB 2022 ; 2e : profil2g). */
 function nomProfil(d: DonneesMur): string {
   if (d.generation === '2e') return profil2g().nom;
-  return d.profilNormatif === 'anb2022' ? profilAnb2022(d.risque).nom : profil1g().nom;
+  return profil1gDe(d).nom;
 }
 
-/** Profil 1re generation retenu : recommande ou ANB 2022 (classe de risque saisie). */
-function profil1gDe(d: DonneesMur) {
-  return d.profilNormatif === 'anb2022' ? profilAnb2022(d.risque) : profil1g();
+/** Profil 1re generation retenu : fourni par l'app (annexe), sinon recommande ou ANB 2022 (classe de risque saisie). */
+function profil1gDe(d: DonneesMur): Profil1g {
+  return d.profil1g ?? (d.profilNormatif === 'anb2022' ? profilAnb2022(d.risque) : profil1g());
 }
 
 /** Coefficients resolus d'une combinaison de stabilite externe. */

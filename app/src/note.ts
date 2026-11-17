@@ -10,7 +10,7 @@
  * Ecrit en T0 par la seance de conception ; l'executant ne le modifie pas.
  */
 
-import { avertissement2eGeneration, type ElementNote, type LigneResultat, type NoteDeCalcul, type VerificationNote, nombreAffiche, tauxAffiche } from 'aedificium-ui';
+import { avertissement2eGeneration, avertissementAnnexeLu, type ElementNote, type LigneResultat, type NoteDeCalcul, type VerificationNote, nombreAffiche, tauxAffiche } from 'aedificium-ui';
 import type { Calcul, Resultat } from './form';
 import { coupe, vueGouvernante } from './dessin';
 import { phrase, ponctuer, textes } from './textes';
@@ -20,6 +20,7 @@ import { VERSION_OUTIL } from './version';
 /** Normes affichees dans le cartouche (non traduites). */
 const NORME_1RE = 'EN 1997-1:2004';
 const NORME_1RE_ANB = 'EN 1997-1:2004, NBN EN 1997-1 ANB:2022';
+const NORME_1RE_LU = 'EN 1997-1:2004, ILNAS-EN 1997-1/AN-LU:2020';
 const NORMES_2E = 'EN 1997-1:2024, EN 1997-3:2025, EN 1990:2023';
 
 const bloc = (titre: string, lignes: LigneResultat[], note: string | null = null): ElementNote => ({
@@ -29,6 +30,7 @@ const bloc = (titre: string, lignes: LigneResultat[], note: string | null = null
 
 function normeDe(calcul: Calcul, r: Resultat): string {
   if (r.generation === '2e') return NORMES_2E;
+  if (calcul.donnees.profilNormatif === 'lu') return NORME_1RE_LU;
   return calcul.donnees.profilNormatif === 'anb2022' ? NORME_1RE_ANB : NORME_1RE;
 }
 
@@ -133,6 +135,8 @@ export function noteDuCalcul(
     },
     verifications: verificationsDe(r),
     // Indice grec du noyau (« m_α ») : la notation commune ne lit que des indices ASCII, d'ou « _alpha ».
-    avertissements: [...(r.generation === '2e' ? [avertissement2eGeneration()] : []), ...r.alertes.map((a) => phrase(a).replace(/_α/g, '_alpha'))],
+    avertissements: [
+      ...(r.generation === '2e' ? [avertissement2eGeneration()] : []),
+      ...(r.generation === '1re' && calcul.donnees.profilNormatif === 'lu' ? [avertissementAnnexeLu()].filter((a) => a !== '') : []), ...r.alertes.map((a) => phrase(a).replace(/_α/g, '_alpha'))],
   };
 }

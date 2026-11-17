@@ -19,6 +19,7 @@ import {
   svgAutonome,
   telecharger,
   avertissement2eGeneration,
+  avertissementAnnexeLu,
 } from 'aedificium-ui';
 import { defautsFhwa, lireSaisie, relire, saisieParDefaut, serialiser, verifier, type Calcul, type Resultat, type Saisie } from './form';
 import { coupe, vueGouvernante, vuesDisponibles } from './dessin';
@@ -129,6 +130,11 @@ function ajusterAffichage(): void {
   if (bandeau !== null) {
     bandeau.hidden = saisie.generation !== '2e';
     bandeau.textContent = avertissement2eGeneration();
+  }
+  const bandeauLu = document.querySelector<HTMLElement>('[data-role="bandeau-annexe"]');
+  if (bandeauLu !== null) {
+    bandeauLu.textContent = avertissementAnnexeLu();
+    bandeauLu.hidden = saisie.generation !== '1re' || saisie.profilNormatif !== 'lu' || bandeauLu.textContent === '';
   }
   for (const b of boutons('[data-armature]')) {
     b.setAttribute('aria-pressed', String(b.dataset.armature === saisie.armature));
