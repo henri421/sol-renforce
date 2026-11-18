@@ -137,6 +137,6 @@ export function noteDuCalcul(
     // Indice grec du noyau (« m_α ») : la notation commune ne lit que des indices ASCII, d'ou « _alpha ».
     avertissements: [
       ...(r.generation === '2e' ? [avertissement2eGeneration()] : []),
-      ...(r.generation === '1re' && calcul.donnees.profilNormatif === 'lu' ? [avertissementAnnexeLu()].filter((a) => a !== '') : []), ...r.alertes.map((a) => phrase(a).replace(/_α/g, '_alpha'))],
+      ...(r.generation === '1re' && calcul.donnees.profilNormatif === 'lu' ? [avertissementAnnexeLu(false)].filter((a) => a !== '') : []), ...r.alertes.map((a) => phrase(a).replace(/_α/g, '_alpha'))],
   };
 }
