@@ -12,7 +12,7 @@ import {
   definirLangue,
   echapper,
   langueDuDocument,
-  noteDeCalculHtml,
+  noteDeCalculHtml, telechargerNotePdf,
   notationHtml,
   ouvrirOuTelecharger,
   resultatsEnCsv,
@@ -335,9 +335,12 @@ document.addEventListener('click', (evenement) => {
   if (!action.startsWith('exporter-')) return;
   if (dernier === null) return montrerErreur(textes().messages.rienAExporter);
   const e = dernier;
-  if (action === 'exporter-note') {
+  if (action === 'exporter-note' || action === 'exporter-note-pdf') {
     const note = noteDuCalcul(e.calcul, e.resultat, cartouche());
-    ouvrirOuTelecharger('sol-renforce-note.html', noteDeCalculHtml(note, STYLES_TRACE));
+    const noteCalc = note;
+    // PDF construit au clic ; en cas d'echec, la note HTML prend le relais.
+    if (action === 'exporter-note-pdf') void telechargerNotePdf('sol-renforce-note.pdf', noteCalc, STYLES_TRACE).catch(() => ouvrirOuTelecharger('sol-renforce-note.html', noteDeCalculHtml(noteCalc, STYLES_TRACE)));
+    else ouvrirOuTelecharger('sol-renforce-note.html', noteDeCalculHtml(noteCalc, STYLES_TRACE));
   } else if (action === 'exporter-coupe') {
     if (vue === null) return montrerErreur(textes().messages.rienAExporter);
     const trace = coupe(e.calcul, e.resultat, vue, optionsDessin());
